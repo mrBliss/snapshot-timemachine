@@ -24,7 +24,6 @@
 ;;; Commentary:
 
 ;; TODO
-;; * benchmark zipper implementations
 ;; * go to prev/next snapshot with an actual diff
 ;; * highlight diff in margins
 ;; * browse diffs?
@@ -37,7 +36,6 @@
 ;;; Code:
 
 (require 'cl-lib)
-(require 'eieio)
 
 (defvar snapper-timemachine-time-format "%a %d %b %Y %R"
   "The format to use when displaying a snapshot's time.
@@ -50,285 +48,78 @@ The default format is \"sat 14 mar 2015 10:35\".")
 
 ;;; Zipper
 
-(defclass zipper ()
-  ((focus  :initarg :focus)
-   (before :initarg :before)
-   (after  :initarg :after))
-  "A zipper suited for tracking focus in a list.")
-
-(cl-defstruct zipper-struct focus before after)
-
-(defalias 'zipper-list-focus 'car)
-(defalias 'zipper-list-before 'cadr)
-(defalias 'zipper-list-after 'caddr)
-
-(defun make-zipper-list (focus before after)
-  (list focus before after))
+;; A zipper suited for tracking focus in a list.
+(cl-defstruct zipper focus before after)
 
 (defun zipper-from-list (l)
   "Make a zipper from the given list L.
 The first element of the list will be focused.  Return nil when
 the list was empty."
   (when l
-    (make-instance
-     'zipper
-     :focus (car l)
-     :before nil
-     :after (cdr l))))
-
-(defun zipper-struct-from-list (l)
-  "Make a zipper from the given list L.
-The first element of the list will be focused.  Return nil when
-the list was empty."
-  (when l
-    (make-zipper-struct
+    (make-zipper
      :focus  (car l)
      :before nil
      :after  (cdr l))))
 
-(defun zipper-list-from-list (l)
-  "Make a zipper from the given list L.
-The first element of the list will be focused.  Return nil when
-the list was empty."
-  (when l (make-zipper-list (car l) nil (cdr l))))
-
 (defun zipper-to-list (z)
   "Convert the zipper Z back to a list.
 The order is preserved, but the focus is lost."
-  (with-slots (focus before after) z
-    (append (nreverse before) (cons focus after))))
-
-(defun zipper-struct-to-list (z)
-  "Convert the zipper Z back to a list.
-The order is preserved, but the focus is lost."
-  (append (nreverse (zipper-struct-before z))
-          (cons (zipper-struct-focus z)
-                (zipper-struct-after z))))
-
-
-(defun zipper-list-to-list (z)
-  "Convert the zipper Z back to a list.
-The order is preserved, but the focus is lost."
-  (append (nreverse (zipper-list-before z))
-          (cons (zipper-list-focus z)
-                (zipper-list-after z))))
-
-(defun zipper-focus (z)
-  "Return the value at the `focus' slot of the zipper Z."
-  (oref z :focus))
+  (append (nreverse (zipper-before z))
+          (cons (zipper-focus z) (zipper-after z))))
 
 (defun zipper-at-end (z)
   "Return non-nil when the zipper Z is at the last element of the list."
-  (null (oref z :after)))
-
-(defun zipper-struct-at-end (z)
-  "Return non-nil when the zipper Z is at the last element of the list."
-  (null (zipper-struct-after z)))
-
-(defun zipper-list-at-end (z)
-  "Return non-nil when the zipper Z is at the last element of the list."
-  (null (zipper-list-after z)))
+  (null (zipper-after z)))
 
 (defun zipper-at-start (z)
   "Return non-nil when the zipper Z is at the first element of the list."
-  (null (oref z :before)))
-
-(defun zipper-struct-at-start (z)
-  "Return non-nil when the zipper Z is at the first element of the list."
-  (null (zipper-struct-before z)))
-
-(defun zipper-list-at-start (z)
-  "Return non-nil when the zipper Z is at the first element of the list."
-  (null (zipper-list-before z)))
+  (null (zipper-before z)))
 
 (defun zipper-shift-next (z)
   "Shifts the zipper Z to the next element in the list.
 Return Z unchanged when at the last element."
   (if (zipper-at-end z) z
-    (with-slots (focus before after) z
-      (make-instance 'zipper
-                     :focus  (car after)
-                     :before (cons focus before)
-                     :after  (cdr after)))))
-
-(defun zipper-struct-shift-next (z)
-  "Shifts the zipper Z to the next element in the list.
-Return Z unchanged when at the last element."
-  (if (zipper-struct-at-end z) z
-    (make-zipper-struct
-     :focus  (car (zipper-struct-after z))
-     :before (cons (zipper-struct-focus z) (zipper-struct-before z))
-     :after  (cdr (zipper-struct-after z)))))
-
-(defun zipper-list-shift-next (z)
-  "Shifts the zipper Z to the next element in the list.
-Return Z unchanged when at the last element."
-  (if (zipper-list-at-end z) z
-    (make-zipper-list
-     (car (zipper-list-after z))
-     (cons (zipper-list-focus z) (zipper-list-before z))
-     (cdr (zipper-list-after z)))))
+    (make-zipper
+     :focus  (car (zipper-after z))
+     :before (cons (zipper-focus z) (zipper-before z))
+     :after  (cdr (zipper-after z)))))
 
 (defun zipper-shift-prev (z)
   "Shifts the zipper Z to the previous element in the list.
 Return Z unchanged when at the first element."
   (if (zipper-at-start z) z
-    (with-slots (focus before after) z
-      (make-instance 'zipper
-                     :focus  (car before)
-                     :before (cdr before)
-                     :after  (cons focus after)))))
-
-
-(defun zipper-struct-shift-prev (z)
-  "Shifts the zipper Z to the previous element in the list.
-Return Z unchanged when at the first element."
-  (if (zipper-struct-at-start z) z
-    (make-zipper-struct
-     :focus  (car (zipper-struct-before z))
-     :before (cdr (zipper-struct-before z))
-     :after  (cons (zipper-struct-focus z) (zipper-struct-after z)))))
-
-(defun zipper-list-shift-prev (z)
-  "Shifts the zipper Z to the previous element in the list.
-Return Z unchanged when at the first element."
-  (if (zipper-list-at-start z) z
-    (make-zipper-list
-     (car (zipper-list-before z))
-     (cdr (zipper-list-before z))
-     (cons (zipper-list-focus z) (zipper-list-after z)))))
+    (make-zipper
+     :focus  (car (zipper-before z))
+     :before (cdr (zipper-before z))
+     :after  (cons (zipper-focus z) (zipper-after z)))))
 
 (defun zipper-shift-end (z)
   "Shifts the zipper Z to the last element in the list.
 Return Z unchanged when already at the last element in the list."
   (if (zipper-at-end z) z
-    (with-slots (focus before after) z
-      (let ((new-before (cons focus before)))
-        (while (cdr after)
-          (push (car after) new-before)
-          (setq after (cdr after)))
-        (make-instance 'zipper
-                       :focus (car after)
-                       :before new-before
-                       :after nil)))))
-
-(defun zipper-struct-shift-end (z)
-  "Shifts the zipper Z to the last element in the list.
-Return Z unchanged when already at the last element in the list."
-  (if (zipper-struct-at-end z) z
-    (let ((new-before (cons (zipper-struct-focus z)
-                            (zipper-struct-before z)))
-          (after (zipper-struct-after z)))
+    (let ((new-before (cons (zipper-focus z) (zipper-before z)))
+          (after (zipper-after z)))
       (while (cdr after)
         (push (car after) new-before)
         (setq after (cdr after)))
-      (make-zipper-struct
+      (make-zipper
        :focus (car after)
        :before new-before
        :after nil))))
-
-(defun zipper-list-shift-end (z)
-  "Shifts the zipper Z to the last element in the list.
-Return Z unchanged when already at the last element in the list."
-  (if (zipper-list-at-end z) z
-    (let ((new-before (cons (zipper-list-focus z)
-                            (zipper-list-before z)))
-          (after (zipper-list-after z)))
-      (while (cdr after)
-        (push (car after) new-before)
-        (setq after (cdr after)))
-      (make-zipper-list
-       (car after)
-       new-before
-       nil))))
 
 (defun zipper-shift-start (z)
   "Shifts the zipper Z to the first element in the list.
 Return Z unchanged when already at the first element in the list."
   (if (zipper-at-start z) z
-    (with-slots (focus before after) z
-      (let ((new-after (cons focus after)))
-        (while (cdr before)
-          (push (car before) new-after)
-          (setq before (cdr before)))
-        (make-instance 'zipper
-                       :focus (car before)
-                       :before nil
-                       :after new-after)))))
-
-
-(defun zipper-struct-shift-start (z)
-  "Shifts the zipper Z to the first element in the list.
-Return Z unchanged when already at the first element in the list."
-  (if (zipper-struct-at-start z) z
-    (let ((new-after (cons (zipper-struct-focus z)
-                           (zipper-struct-after z)))
-          (before (zipper-struct-before z)))
+    (let ((new-after (cons (zipper-focus z) (zipper-after z)))
+          (before (zipper-before z)))
       (while (cdr before)
         (push (car before) new-after)
         (setq before (cdr before)))
-      (make-zipper-struct
+      (make-zipper
        :focus (car before)
        :before nil
        :after new-after))))
-
-(defun zipper-list-shift-start (z)
-  "Shifts the zipper Z to the first element in the list.
-Return Z unchanged when already at the first element in the list."
-  (if (zipper-list-at-start z) z
-    (let ((new-after (cons (zipper-list-focus z)
-                           (zipper-list-after z)))
-          (before (zipper-list-before z)))
-      (while (cdr before)
-        (push (car before) new-after)
-        (setq before (cdr before)))
-      (make-zipper-list
-       (car before)
-       nil
-       new-after))))
-
-
-(let ((l (number-sequence 1 5000)))
-  (benchmark-run 100
-    (zipper-list-shift-start
-     (zipper-list-shift-end
-      (zipper-list-shift-prev
-       (zipper-list-shift-next (zipper-list-from-list l)))))))
-(0.7567493789999999 2 0.3762416620000124)
-(0.7461273350000001 2 0.34710963399999173)
-(0.7791949859999999 2 0.33725133200002233)
-(0.7954909250000001 2 0.364250262000013)
-(0.720289693 2 0.32975402499999973)
-
-(let ((l (number-sequence 1 5000)))
-  (benchmark-run 100
-    (zipper-struct-shift-start
-     (zipper-struct-shift-end
-      (zipper-struct-shift-prev
-       (zipper-struct-shift-next (zipper-struct-from-list l)))))))
-(0.761351521 2 0.34140165599998795)
-(0.764098266 2 0.36085432100000503)
-(0.736548686 2 0.32736425299998473)
-(0.756832489 2 0.3602591809999751)
-(0.9457590699999999 3 0.540813944000007)
-
-;; NOTE: only 10 runs!
-(let ((l (number-sequence 1 5000)))
-  (benchmark-run 10
-    (zipper-shift-start
-     (zipper-shift-end
-      (zipper-shift-prev
-       (zipper-shift-next (zipper-from-list l)))))))
-(2.812881636 9 1.5561805919999472)
-(2.643988546 8 1.375335917000001)
-(2.613156732 8 1.3341268579999905)
-(2.717466446 8 1.4040672449999931)
-(2.895762801 9 1.575489095000023)
-
-
-
-
-
 
 ;;; Internal variables
 
