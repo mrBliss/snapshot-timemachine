@@ -64,8 +64,13 @@ the list was empty."
 (defun zipper-to-list (z)
   "Convert the zipper Z back to a list.
 The order is preserved, but the focus is lost."
-  (append (nreverse (zipper-before z))
-          (cons (zipper-focus z) (zipper-after z))))
+  (let ((l (cons (zipper-focus z) (zipper-after z)))
+        (before (zipper-before z)))
+    (while before
+      (push l (car before))
+      (setq before (cdr before)))
+    l))
+
 
 (defun zipper-at-end (z)
   "Return non-nil when the zipper Z is at the last element of the list."
