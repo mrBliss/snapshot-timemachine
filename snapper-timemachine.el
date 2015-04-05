@@ -67,7 +67,7 @@ The order is preserved, but the focus is lost."
   (let ((l (cons (zipper-focus z) (zipper-after z)))
         (before (zipper-before z)))
     (while before
-      (push l (car before))
+      (push (car before) l)
       (setq before (cdr before)))
     l))
 
