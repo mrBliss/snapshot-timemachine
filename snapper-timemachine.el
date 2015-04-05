@@ -126,6 +126,23 @@ Return Z unchanged when already at the first element in the list."
        :before nil
        :after new-after))))
 
+(defun zipper-shift-to (z predicate)
+  "Shift the zipper Z to an element satisfying PREDICATE.
+First try the next elements, then the previous ones.  Returns nil
+when no element satisfies PREDICATE."
+  (or
+   ;; First go all the way to the end
+   (cl-loop for z* = z then (zipper-shift-next z*)
+            until (zipper-at-end z*)
+            if (funcall predicate (zipper-focus z*))
+            return z*)
+   ;; If we haven't found it by then, start again from z and go all the way to
+   ;; the start
+   (cl-loop for z* = z then (zipper-shift-prev z*)
+            until (zipper-at-start z*)
+            if (funcall predicate (zipper-focus z*))
+            return z*)))
+
 ;;; Internal variables
 
 (defvar-local snapper-timemachine-snapshot-dir nil
