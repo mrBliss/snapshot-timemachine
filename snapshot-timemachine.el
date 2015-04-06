@@ -37,6 +37,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'subr-x)
 
 (defvar snapshot-timemachine-time-format "%a %d %b %Y %R"
   "The format to use when displaying a snapshot's time.
@@ -193,7 +194,7 @@ containing the snapshots."
          (snapshot-root (file-name-directory
                          (directory-file-name snapshot-dir)))
          ;; "thomas/.emacs.d/init.el"
-         (rel-path (s-chop-prefix snapshot-root file*)))
+         (rel-path (string-remove-prefix snapshot-root file*)))
     ;; "/home/.snapshots/182/snapshot/thomas/.emacs.d/init.el"
     (concat snapshot-path rel-path)))
 
