@@ -391,6 +391,8 @@ the time machine."
   (let ((focused-snapshot-id
          (snapshot-id (zipper-focus snapshot-timemachine-buffer-snapshots))))
     (with-current-buffer
+        ;; TODO add function that finds the matching timeline buffer (and vice
+        ;; versa)
         (or (switch-to-buffer
              (get-buffer (format "timeline:%s"
                                  (file-name-nondirectory (buffer-file-name)))))
