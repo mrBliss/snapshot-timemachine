@@ -26,7 +26,6 @@
 ;; TODO
 ;; * highlight diff in margins
 ;; * browse diffs?
-;; * snapshot timeline?
 ;; * relative timestamps
 ;; * dired?
 ;; * compatibility with ZFS (http://wiki.complete.org/ZFSAutoSnapshots) and
@@ -380,7 +379,7 @@ the time machine."
 ;;; Minor-mode for snapshots
 
 (define-minor-mode snapshot-timemachine-mode
-  "TODO"
+  "Step through snapshots of files."
   :init-value nil
   :lighter " Timemachine"
   :keymap
@@ -420,7 +419,7 @@ problem."
           (funcall fn snapshot-dir snapshots))))))
 
 (defmacro with-snapshots (file args &rest body)
-  "Wrap a call to `snapshot-validate' for FILE passing a lambda with ARGS and BODY.
+  "Call `snapshot-validate' with FILE passing a lambda with ARGS and BODY.
 ARGS should be a list of two arguments, the snapshot directory
 will be bound to the first argument, and the snapshots will be
 bound to the second argument."
