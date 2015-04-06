@@ -172,6 +172,13 @@ when no element satisfies PREDICATE."
   diffstat
   )
 
+(defun snapshot-file (s)
+  "Return the full filename of `snapshot-timemachine-original-file' in snapshot S.
+Both `snapshot-timemachine-original-file' and
+`snapshot-timemachine-snapshot-dir' must be set."
+  (snapshot-timemachine-path-in-snapshot
+   snapshot-timemachine-original-file s
+   snapshot-timemachine-snapshot-dir))
 
 ;;; Locating snapshots
 (defun snapshot-timemachine-find-snapshot-dir (dir)
@@ -229,17 +236,15 @@ Snapshots in which FILE doesn't exist are discarded."
 The current snapshot is stored in
 `snapshot-timemachine-buffer-snapshots'."
   (let* ((snapshot (zipper-focus snapshot-timemachine-buffer-snapshots))
-         (snapshot-file (snapshot-timemachine-path-in-snapshot
-                         snapshot-timemachine-original-file snapshot
-                         snapshot-timemachine-snapshot-dir))
+         (file (snapshot-file snapshot))
          (time (format-time-string
                 snapshot-timemachine-time-format
                 (snapshot-date snapshot))))
     (setq buffer-read-only nil)
-    (insert-file-contents snapshot-file nil nil nil t)
+    (insert-file-contents file nil nil nil t)
     (setq buffer-read-only t
-          buffer-file-name snapshot-file
-          default-directory (file-name-directory snapshot-file))
+          buffer-file-name file
+          default-directory (file-name-directory file))
     (set-buffer-modified-p nil)
     (setq mode-line-buffer-identification
           (list (propertized-buffer-identification "%12b") "@"
@@ -319,12 +324,8 @@ The file is stored in `snapshot-timemachine-original-file'."
   (unless (string-empty-p
            (shell-command-to-string
             (format "diff -q \"%s\" \"%s\""
-                    (snapshot-timemachine-path-in-snapshot
-                     snapshot-timemachine-original-file s1
-                     snapshot-timemachine-snapshot-dir)
-                    (snapshot-timemachine-path-in-snapshot
-                     snapshot-timemachine-original-file s2
-                     snapshot-timemachine-snapshot-dir))))
+                    (snapshot-file s1)
+                    (snapshot-file s2))))
     t))
 
 (defun snapshot-timemachine-show-next-interesting-snapshot ()
@@ -522,12 +523,7 @@ already contains a diffstat, it is not recalculated.  Modify the
 SNAPSHOTS in-place and return them."
   (cl-labels ((diffstat (s1 s2)
                         (snapshot-timeline-diffstat
-                         (snapshot-timemachine-path-in-snapshot
-                          snapshot-timemachine-original-file s1
-                          snapshot-timemachine-snapshot-dir)
-                         (snapshot-timemachine-path-in-snapshot
-                          snapshot-timemachine-original-file s2
-                          snapshot-timemachine-snapshot-dir))))
+                         (snapshot-file s1) (snapshot-file s2))))
     (unless (cl-some (lambda (s) (consp (snapshot-diffstat s))) snapshots)
       (cl-loop
        for s in snapshots and s-prev in (cons nil snapshots)
