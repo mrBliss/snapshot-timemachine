@@ -666,6 +666,11 @@ shown (`snapshot-timeline-show-snapshot-or-diff')."
       (snapshot-timeline-show-diff)
     (snapshot-timeline-show-snapshot)))
 
+(defun snapshot-timeline-unmark ()
+  "Remove the mark on the current line."
+  (interactive)
+  (tabulated-list-put-tag "" t))
+
 (defun snapshot-timeline-unmark-all (&optional c)
   "Remove all marks (equal to C when passed) from the time line.
 When C is passed and non-nil, only marks matching C are removed,
@@ -738,6 +743,7 @@ the last snapshot, for example when the order is reversed."
     (define-key map (kbd "m")   'snapshot-timeline-emerge-A-B)
     (define-key map (kbd "N")   'snapshot-timeline-goto-next-interesting-snapshot)
     (define-key map (kbd "P")   'snapshot-timeline-goto-prev-interesting-snapshot)
+    (define-key map (kbd "u")   'snapshot-timeline-unmark)
     (define-key map (kbd "U")   'snapshot-timeline-unmark-all)
     (define-key map (kbd "v")   'snapshot-timeline-show-snapshot)
     (define-key map (kbd "<")   'snapshot-timeline-goto-start)
