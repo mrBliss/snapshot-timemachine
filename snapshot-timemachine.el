@@ -398,6 +398,34 @@ the time machine."
 
 ;;; Timemachine launcher
 
+(defun snapshot-timemachine-create (file snapshots snapshot-dir &optional id)
+  "Create and return a snapshot time machine buffer.
+The snapshot timemachine will be of FILE using the SNAPSHOTS
+located in SNAPSHOT-DIR.  SNAPSHOTS must be a non-empty list.
+The snapshot with ID is displayed unless ID is not passed (or
+nil), in which case the last snapshot is displayed."
+  (let* ((timemachine-buffer
+          (format "snapshot:%s" (file-name-nondirectory file)))
+         ;; We say is must be non-empty, so `zipper-from-list' shouldn't fail.
+         (z (zipper-from-list snapshots))
+         (shifted-z (when id (zipper-shift-to
+                              z (lambda (s) (= (snapshot-id s) id)))))
+         ;; Shifting can still fail if ID is missing
+         (z* (or shifted-z (zipper-shift-end z))))
+    (cl-destructuring-bind (cur-line mode)
+        (with-current-buffer (find-file-noselect file t)
+          (list (line-number-at-pos) major-mode))
+      (with-current-buffer (get-buffer-create timemachine-buffer)
+        (switch-to-buffer timemachine-buffer)
+        (funcall mode)
+        (setq snapshot-timemachine-original-file    file
+              snapshot-timemachine-buffer-snapshots z*
+              snapshot-timemachine-snapshot-dir     snapshot-dir)
+        (snapshot-timemachine-show-focused-snapshot)
+        (goto-char (point-min))
+        (forward-line (1- cur-line))
+        (snapshot-timemachine-mode)))))
+
 ;;;###autoload
 (defun snapshot-timemachine (&optional file)
   "Start the snapshot timemachine for FILE.
@@ -405,25 +433,7 @@ FILE defaults to the file the current buffer is visiting."
   (interactive)
   (let ((file (or file (buffer-file-name))))
     (with-snapshots file (snapshot-dir snapshots)
-      (let ((timemachine-buffer
-             (format "snapshot:%s" (file-name-nondirectory file)))
-            ;; We already did a null check, so `zipper-from-list'
-            ;; shouldn't fail.
-            (snapshot-zipper (zipper-shift-end
-                              (zipper-from-list snapshots))))
-        (cl-destructuring-bind (cur-line mode)
-            (with-current-buffer (find-file-noselect file t)
-              (list (line-number-at-pos) major-mode))
-          (with-current-buffer (get-buffer-create timemachine-buffer)
-            (switch-to-buffer timemachine-buffer)
-            (funcall mode)
-            (setq snapshot-timemachine-original-file    file
-                  snapshot-timemachine-buffer-snapshots snapshot-zipper
-                  snapshot-timemachine-snapshot-dir     snapshot-dir)
-            (snapshot-timemachine-show-focused-snapshot)
-            (goto-char (point-min))
-            (forward-line (1- cur-line))
-            (snapshot-timemachine-mode)))))))
+      (snapshot-timemachine-create file snapshots snapshot-dir))))
 
 
 ;;; Interactive timeline functions and their helpers
@@ -461,7 +471,7 @@ relative to WIDTH."
                   (propertize (make-string minuses ?-)
                               'face 'diff-removed)))))))
 
-;; TODO include current verison of file
+;; TODO include current version of file
 (defun snapshot-timeline-format-snapshots (snapshots)
   "Format SNAPSHOTS to be used as `tabulated-list-entries'.
 An entry consists of the snapshot's name, its date and a diffstat
@@ -489,11 +499,50 @@ with the previous snapshot."
              (snapshot-date s))
             (if (not s-prev) "" (diffstat s-prev s)))))))
 
+(defun snapshot-timeline-show-snapshot ()
+  "Show the snapshot under the point in the snapshot time machine."
+  (interactive)
+  (let ((id (tabulated-list-get-id)))
+    (if (null id)
+        (message "Not on a snapshot"))
+    (snapshot-timemachine-create
+     snapshot-timemachine-original-file
+     snapshot-timemachine-buffer-snapshots
+     snapshot-timemachine-snapshot-dir
+     id)))
+
+(defun snapshot-timeline-show-diff ()
+  "TODO"
+  (interactive)
+  nil)
+
+(defun snapshot-timeline-show-snapshot-or-diff ()
+  "Show the snapshot under the point or the diff, depending on the column.
+If the point is located in the Diffstat column, a diff with the
+previous snapshot is shown (`snapshot-timeline-show-diff'),
+otherwise the snapshot of the file is
+shown (`snapshot-timeline-show-snapshot-or-diff')."
+  (interactive)
+  (if (equal "Diffstat"
+             (get-text-property (point) 'tabulated-list-column-name))
+      (snapshot-timeline-show-diff)
+    (snapshot-timeline-show-snapshot)))
+
+
 ;;; Minor-mode for timeline
+
+(defvar snapshot-timeline-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map tabulated-list-mode-map)
+    (define-key map (kbd "RET") 'snapshot-timeline-show-snapshot-or-diff)
+    (define-key map (kbd "v")   'snapshot-timeline-show-snapshot)
+    map)
+  "Local keymap for `snapshot-timeline-mode' buffers.")
 
 (define-derived-mode snapshot-timeline-mode tabulated-list-mode
   "Snapshot Timeline"
   "Display a timeline of snapshots of a file."
+  :group 'snapshot-timemachine
   (let ((time-width (length
                      (format-time-string
                       snapshot-timemachine-time-format '(0 0 0 0)))))
