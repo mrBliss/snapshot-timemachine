@@ -537,9 +537,11 @@ SNAPSHOTS in-place and return them."
 
 (defun snapshot-timeline-interesting-diffstatp (diffstat)
   "Return t when the given DIFFSTAT (format: (ADDED . REMOVED)) is interesting.
-A diffstat is interesting when it is not nil and both ADDED and
-REMOVED are greater than zero."
-  (and diffstat (< 0 (car diffstat)) (< 0 (cdr diffstat))))
+A diffstat is interesting when it is not nil and ADDED or REMOVED
+is greater than zero."
+  (and diffstat
+       (or (< 0 (car diffstat))
+           (< 0 (cdr diffstat)))))
 
 ;; TODO include current version of file
 (defun snapshot-timeline-format-snapshots (snapshots &optional interesting-only)
