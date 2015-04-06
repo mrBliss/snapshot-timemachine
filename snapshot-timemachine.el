@@ -43,19 +43,6 @@
   "The format to use when displaying a snapshot's time.
 The default format is \"sat 14 mar 2015 10:35\".")
 
-;; A struct representing a snapshot.
-(cl-defstruct snapshot
-  ;; An ascending numerical identifier for lookup and sorting
-  id
-  ;; The path to the snapshot directory, e.g. /home/.snapshots/2/snapshot/
-  path
-  ;; The date of the snapshot, format: (HIGH LOW USEC PSEC)
-  date
-  ;; The number of lines added/removed compared to the previous snapshot,
-  ;; format: (ADDED . REMOVED). Can be nil when uninitialised.
-  diffstat
-  )
-
 ;;; Zipper
 
 ;; A zipper suited for tracking focus in a list.
@@ -172,8 +159,21 @@ when no element satisfies PREDICATE."
 (defvar-local snapshot-timemachine-original-file nil
   "Maintains the path to the original (most recent) file.")
 
-;;; Locating snapshots
+;; A struct representing a snapshot.
+(cl-defstruct snapshot
+  ;; An ascending numerical identifier for lookup and sorting
+  id
+  ;; The path to the snapshot directory, e.g. /home/.snapshots/2/snapshot/
+  path
+  ;; The date of the snapshot, format: (HIGH LOW USEC PSEC)
+  date
+  ;; The number of lines added/removed compared to the previous snapshot,
+  ;; format: (ADDED . REMOVED). Can be nil when uninitialised.
+  diffstat
+  )
 
+
+;;; Locating snapshots
 (defun snapshot-timemachine-find-snapshot-dir (dir)
   "Find the directory containing the snapshots.
 Starts in DIR and looks for a directory named \".snapshots\"."
