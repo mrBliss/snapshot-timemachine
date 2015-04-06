@@ -370,12 +370,15 @@ the time machine."
   (let ((focused-snapshot-id
          (snapshot-id (zipper-focus snapshot-timemachine-buffer-snapshots))))
     (with-current-buffer
-        (snapshot-timeline-create
-         snapshot-timemachine-original-file
-         (zipper-to-list snapshot-timemachine-buffer-snapshots)
-         snapshot-timemachine-snapshot-dir)
+        (or (switch-to-buffer
+             (get-buffer (format "timeline:%s"
+                                 (file-name-nondirectory (buffer-file-name)))))
+            (snapshot-timeline-create
+             snapshot-timemachine-original-file
+             (zipper-to-list snapshot-timemachine-buffer-snapshots)
+             snapshot-timemachine-snapshot-dir))
       ;; Go to the snapshot that was active in the timemachine
-      (cl-loop for pos = (point-min)
+      (cl-loop for pos = (progn (goto-char (point-min)) (point-min))
                then (progn (forward-line) (point))
                while (< pos (point-max))
                until (= focused-snapshot-id (tabulated-list-get-id pos))))))
