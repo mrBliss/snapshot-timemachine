@@ -535,6 +535,12 @@ and return them."
        do (setf (snapshot-extra s) diffstat)))
     snapshots))
 
+(defun snapshot-timeline-interesting-diffstatp (diffstat)
+  "Return t when the given DIFFSTAT (format: (ADDED . REMOVED)) is interesting.
+A diffstat is interesting when it is not nil and both ADDED and
+REMOVED are greater than zero."
+  (and diffstat (< 0 (car diffstat)) (< 0 (cdr diffstat))))
+
 ;; TODO include current version of file
 (defun snapshot-timeline-format-snapshots (snapshots &optional interesting-only)
   "Format SNAPSHOTS to be used as `tabulated-list-entries'.
@@ -545,8 +551,7 @@ snapshots in which the file was changed are returned."
    for s in snapshots
    for diffstat = (snapshot-extra s)
    unless (and interesting-only
-               (or (null diffstat)
-                   (and (zerop (car diffstat)) (zerop (cdr diffstat)))))
+               (not (snapshot-timeline-interesting-diffstatp diffstat)))
    collect (list (snapshot-id s)
                  (vector
                   (format "%5s"
