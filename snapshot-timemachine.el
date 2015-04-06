@@ -531,7 +531,7 @@ SNAPSHOTS in-place and return them."
     (unless (cl-some (lambda (s) (consp (snapshot-diffstat s))) snapshots)
       (cl-loop
        for s in snapshots and s-prev in (cons nil snapshots)
-       for diffstat = (when s-prev (message "DIFFSTAT") (diffstat s-prev s))
+       for diffstat = (when s-prev (diffstat s-prev s))
        do (setf (snapshot-diffstat s) diffstat)))
     snapshots))
 
