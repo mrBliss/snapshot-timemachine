@@ -24,6 +24,8 @@
 ;;; Commentary:
 
 ;; TODO
+;; * let (S-)n/p in timeline behave like in magit-log (maybe an option?)
+;; * sync next/previous between timemachine and timeline
 ;; * highlight diff in margins
 ;; * browse diffs?
 ;; * relative timestamps
@@ -479,14 +481,14 @@ SNAPSHOTS in-place and return them."
 The snapshot timemachine will be of FILE using the SNAPSHOTS
 located in SNAPSHOT-DIR.  SNAPSHOTS must be a non-empty list.
 The snapshot with ID is displayed unless ID is not passed (or
-nil), in which case the last snapshot is displayed."
+nil), in which case the last snapshot is displayed.  Return the
+created buffer."
   (let* ((timemachine-buffer
           (format "snapshot:%s" (file-name-nondirectory file))))
     (cl-destructuring-bind (cur-line mode)
         (with-current-buffer (find-file-noselect file t)
           (list (line-number-at-pos) major-mode))
       (with-current-buffer (get-buffer-create timemachine-buffer)
-        (switch-to-buffer timemachine-buffer)
         (funcall mode)
         (setq snapshot-timemachine-original-file file
               snapshot-timemachine-snapshot-dir  snapshot-dir
@@ -496,8 +498,8 @@ nil), in which case the last snapshot is displayed."
               ;; We say is must be non-empty, so `zipper-from-list' shouldn't
               ;; fail.
               (let* ((z (zipper-from-list
-                        (snapshot-timemachine-add-diffstats
-                                          snapshots)))
+                         (snapshot-timemachine-add-diffstats
+                          snapshots)))
                      (shifted-z
                       (when id (zipper-shift-to
                                 z (lambda (s) (= (snapshot-id s) id)))))
@@ -507,7 +509,8 @@ nil), in which case the last snapshot is displayed."
         (snapshot-timemachine-show-focused-snapshot)
         (goto-char (point-min))
         (forward-line (1- cur-line))
-        (snapshot-timemachine-mode)))))
+        (snapshot-timemachine-mode)
+        (current-buffer)))))
 
 ;;;###autoload
 (defun snapshot-timemachine (&optional file)
@@ -516,7 +519,8 @@ FILE defaults to the file the current buffer is visiting."
   (interactive)
   (let ((file (or file (buffer-file-name))))
     (with-snapshots file (snapshot-dir snapshots)
-      (snapshot-timemachine-create file snapshots snapshot-dir))))
+      (switch-to-buffer
+       (snapshot-timemachine-create file snapshots snapshot-dir)))))
 
 ;;; Interactive time line functions and their helpers
 
@@ -610,16 +614,34 @@ shown (`snapshot-timeline-show-snapshot-or-diff')."
     (snapshot-timeline-show-snapshot)))
 
 (defun snapshot-timeline-show-snapshot ()
-  "Show the snapshot under the point in the snapshot time machine."
+  "Show the snapshot under the point in the snapshot time machine.
+Open the time machine buffer in the same window."
   (interactive)
   (let ((id (tabulated-list-get-id)))
     (if (null id)
         (message "Not on a snapshot"))
-    (snapshot-timemachine-create
-     snapshot-timemachine-original-file
-     snapshot-timemachine-buffer-snapshots
-     snapshot-timemachine-snapshot-dir
-     id)))
+    (switch-to-buffer
+     (snapshot-timemachine-create
+      snapshot-timemachine-original-file
+      snapshot-timemachine-buffer-snapshots
+      snapshot-timemachine-snapshot-dir
+      id))))
+
+(defun snapshot-timeline-view-snapshot ()
+  "Show the snapshot under the point in the snapshot time machine.
+Open the time machine buffer in another window and leave the
+timeline window focused."
+  (interactive)
+  (let ((id (tabulated-list-get-id)))
+    (if (null id)
+        (message "Not on a snapshot"))
+    ;; TODO other window is focused
+    (switch-to-buffer-other-window
+     (snapshot-timemachine-create
+        snapshot-timemachine-original-file
+        snapshot-timemachine-buffer-snapshots
+        snapshot-timemachine-snapshot-dir
+        id) t)))
 
 (defun snapshot-timeline-show-diff ()
   "Show the diff between this snapshot and the previous one.
@@ -777,7 +799,7 @@ the last snapshot, for example when the order is reversed."
     (define-key map (kbd "P")   'snapshot-timeline-goto-prev-interesting-snapshot)
     (define-key map (kbd "u")   'snapshot-timeline-unmark)
     (define-key map (kbd "U")   'snapshot-timeline-unmark-all)
-    (define-key map (kbd "v")   'snapshot-timeline-show-snapshot)
+    (define-key map (kbd "v")   'snapshot-timeline-view-snapshot)
     (define-key map (kbd "<")   'snapshot-timeline-goto-start)
     (define-key map (kbd ">")   'snapshot-timeline-goto-end)
     (define-key map (kbd "=")   'snapshot-timeline-show-diff)
