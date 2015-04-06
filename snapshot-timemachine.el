@@ -24,7 +24,6 @@
 ;;; Commentary:
 
 ;; TODO
-;; * go to prev/next snapshot with an actual diff
 ;; * highlight diff in margins
 ;; * browse diffs?
 ;; * snapshot timeline?
@@ -128,22 +127,29 @@ Return Z unchanged when already at the first element in the list."
        :before nil
        :after new-after))))
 
+(defun zipper-shift-forwards-to (z predicate)
+  "Shift the zipper Z forwards to an element satisfying PREDICATE.
+Returns nil when no element satisfies PREDICATE."
+  (cl-loop for z* = z then (zipper-shift-next z*)
+           if (funcall predicate (zipper-focus z*))
+           return z*
+           until (zipper-at-end z*)))
+
+(defun zipper-shift-backwards-to (z predicate)
+  "Shift the zipper Z backwards to an element satisfying PREDICATE.
+Returns nil when no element satisfies PREDICATE."
+  (cl-loop for z* = z then (zipper-shift-prev z*)
+           if (funcall predicate (zipper-focus z*))
+           return z*
+           until (zipper-at-start z*)))
+
 (defun zipper-shift-to (z predicate)
   "Shift the zipper Z to an element satisfying PREDICATE.
 First try the next elements, then the previous ones.  Returns nil
 when no element satisfies PREDICATE."
   (or
-   ;; First go all the way to the end
-   (cl-loop for z* = z then (zipper-shift-next z*)
-            if (funcall predicate (zipper-focus z*))
-            return z*
-            until (zipper-at-end z*))
-   ;; If we haven't found it by then, start again from z and go all the way to
-   ;; the start
-   (cl-loop for z* = z then (zipper-shift-prev z*)
-            if (funcall predicate (zipper-focus z*))
-            return z*
-            until (zipper-at-start z*))))
+   (zipper-shift-forwards-to z predicate)
+   (zipper-shift-backwards-to z predicate)))
 
 ;;; Internal variables
 
@@ -297,6 +303,56 @@ The current snapshot is stored in
           (setq snapshot-timemachine-buffer-snapshots z*)
           (snapshot-timemachine-show-focused-snapshot))))))
 
+(defun snapshot-timemachine-snapshots-differ (s1 s2)
+  "Return t when the snapshots S1 and S2 of the file differ.
+The file is stored in `snapshot-timemachine-original-file'."
+  (unless (string-empty-p
+           (shell-command-to-string
+            (format "diff -q \"%s\" \"%s\""
+                    (snapshot-timemachine-path-in-snapshot
+                     snapshot-timemachine-original-file s1
+                     snapshot-timemachine-snapshot-dir)
+                    (snapshot-timemachine-path-in-snapshot
+                     snapshot-timemachine-original-file s2
+                     snapshot-timemachine-snapshot-dir))))
+    t))
+
+
+(defun snapshot-timemachine-show-next-interesting-snapshot ()
+  "Show the next snapshot in time that differs from the current one."
+  (interactive)
+  (if (zipper-at-end snapshot-timemachine-buffer-snapshots)
+      (message "Last snapshot")
+    (let* ((current-snapshot
+            (zipper-focus snapshot-timemachine-buffer-snapshots))
+           (z* (zipper-shift-forwards-to
+                snapshot-timemachine-buffer-snapshots
+                (lambda (s)
+                  (snapshot-timemachine-snapshots-differ
+                   s current-snapshot)))))
+      (if (null z*)
+          (message "No differing snapshot found.")
+        (setq snapshot-timemachine-buffer-snapshots z*)
+        (snapshot-timemachine-show-focused-snapshot)))))
+
+(defun snapshot-timemachine-show-prev-interesting-snapshot ()
+  "Show the previous snapshot in time that differs from the current one."
+  (interactive)
+  (if (zipper-at-start snapshot-timemachine-buffer-snapshots)
+      (message "First snapshot")
+    (let* ((current-snapshot
+            (zipper-focus snapshot-timemachine-buffer-snapshots))
+           (z* (zipper-shift-backwards-to
+                snapshot-timemachine-buffer-snapshots
+                (lambda (s)
+                  (snapshot-timemachine-snapshots-differ
+                   s current-snapshot)))))
+      (if (null z*)
+          (message "No differing snapshot found.")
+        (setq snapshot-timemachine-buffer-snapshots z*)
+        (snapshot-timemachine-show-focused-snapshot)))))
+
+
 (defun snapshot-timemachine-quit ()
   "Exit the timemachine."
   (interactive)
@@ -309,6 +365,8 @@ The current snapshot is stored in
   :keymap
   '(("n" . snapshot-timemachine-show-next-snapshot)
     ("p" . snapshot-timemachine-show-prev-snapshot)
+    ("N" . snapshot-timemachine-show-next-interesting-snapshot)
+    ("P" . snapshot-timemachine-show-prev-interesting-snapshot)
     ("<" . snapshot-timemachine-show-first-snapshot)
     (">" . snapshot-timemachine-show-last-snapshot)
     ("j" . snapshot-timemachine-show-nth-snapshot)
