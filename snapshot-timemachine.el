@@ -354,12 +354,23 @@ The file is stored in `snapshot-timemachine-original-file'."
         (snapshot-timemachine-show-focused-snapshot)))))
 
 (defun snapshot-timemachine-show-timeline ()
-  "Display the snapshot timeline of the given file."
+  "Display the snapshot timeline of the given file.
+Leaves the point on the line of the snapshot that was active in
+the time machine."
   (interactive)
-  (snapshot-timeline-create
-   snapshot-timemachine-original-file
-   (zipper-to-list snapshot-timemachine-buffer-snapshots)
-   snapshot-timemachine-snapshot-dir))
+  (let ((focused-snapshot-id
+         (snapshot-id (zipper-focus snapshot-timemachine-buffer-snapshots))))
+    (with-current-buffer
+        (snapshot-timeline-create
+         snapshot-timemachine-original-file
+         (zipper-to-list snapshot-timemachine-buffer-snapshots)
+         snapshot-timemachine-snapshot-dir)
+      ;; Go to the snapshot that was active in the timemachine
+      (cl-loop for pos = (point-min)
+               then (progn (forward-line) (point))
+               while (< pos (point-max))
+               until (= focused-snapshot-id (tabulated-list-get-id pos))))))
+
 
 (defun snapshot-timemachine-quit ()
   "Exit the timemachine."
@@ -488,7 +499,7 @@ with the previous snapshot."
 ;;; Timeline launcher
 
 (defun snapshot-timeline-create (file snapshots snapshot-dir)
-  "Create a snapshot timeline buffer.
+  "Create and return a snapshot timeline buffer.
 The snapshot timeline will be of FILE using the SNAPSHOTS located
 in SNAPSHOT-DIR."
   (let ((timeline-buffer
