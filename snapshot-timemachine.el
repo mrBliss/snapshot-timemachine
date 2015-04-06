@@ -30,7 +30,8 @@
 ;; * relative timestamps
 ;; * dired?
 ;; * compatibility with ZFS (http://wiki.complete.org/ZFSAutoSnapshots) and
-;;   snapshot systems. Make it easy to adapt to your specific needs.
+;;   snapshot systems. Make it easy to adapt to your specific needs. Introduce
+;;   snapshot-name.
 
 
 
@@ -410,6 +411,107 @@ The file is stored in `snapshot-timemachine-original-file'."
                 (goto-char (point-min))
                 (forward-line (1- cur-line))
                 (snapshot-timemachine-mode)))))))))
+
+
+;;; Interactive timeline functions and their helpers
+
+(defun snapshot-timeline-diffstat (file1 file2 &optional width)
+  "Calculate a diffstat between FILE1 and FILE2 with a maximum width of WIDTH.
+WIDTH defaults to 64 characters.  When there is no difference or
+one of the files doesn't exist, an empty string is returned.
+Otherwise, a string consisting a plus sign (with face
+`diff-added') for each added line and a minus sign (with face
+`diff-removed') for each removed line.  If the total number of
+signs would exceed WIDTH, the number of plus and minus sign is
+relative to WIDTH."
+  (if (not (and (file-exists-p file1) (file-exists-p file2)))
+      ""
+    (let ((width (or width 64))
+          (diff-output
+           (shell-command-to-string
+            (format "diff %s %s %s \"%s\" \"%s\""
+                    "--old-line-format='-'"
+                    "--new-line-format='+'"
+                    "--unchanged-line-format=''"
+                    file1 file2))))
+      (destructuring-bind (pluses . minuses)
+          (cl-loop for c across diff-output
+                   count (eq c ?+) into p
+                   count (eq c ?-) into m
+                   finally return (cons p m))
+        (let ((total (+ pluses minuses)))
+          (when (> total width)
+            (setq pluses (round (* width (/ pluses (float total))))
+                  minuses (- width pluses)))
+          (concat (propertize (make-string pluses ?+)
+                              'face 'diff-added)
+                  (propertize (make-string minuses ?-)
+                              'face 'diff-removed)))))))
+
+;; TODO include current verison of file
+(defun snapshot-timeline-format-snapshots (snapshots)
+  "Format SNAPSHOTS to be used as `tabulated-list-entries'.
+An entry consists of the snapshot's name, its date and a diffstat
+with the previous snapshot."
+  (cl-labels ((diffstat (s1 s2)
+                        (snapshot-timeline-diffstat
+                         (snapshot-timemachine-path-in-snapshot
+                          snapshot-timemachine-original-file s1
+                          snapshot-timemachine-snapshot-dir)
+                         (snapshot-timemachine-path-in-snapshot
+                          snapshot-timemachine-original-file s2
+                          snapshot-timemachine-snapshot-dir) 40)))
+    (cl-loop for s in snapshots and s-prev in (cons nil snapshots)
+             collect
+             (list (snapshot-id s)
+                   (vector (format "%5d" (snapshot-id s)) ;; TODO make clickable
+                           (format-time-string
+                            snapshot-timemachine-time-format
+                            (snapshot-date s))
+                           (if (not s-prev) "" (diffstat s-prev s)))))))
+
+;;; Minor-mode for timeline
+
+(define-derived-mode snapshot-timeline-mode tabulated-list-mode
+  "Snapshot Timeline"
+  "Display a timeline of snapshots of a file."
+  (setq tabulated-list-format
+        ;; TODO make widths configurable
+        [("Snapshot" 8 t)
+         ("Time" 21 nil) ;; TODO make sortable
+         ("Diffstat" 40 nil)])
+  (tabulated-list-init-header))
+
+
+;;; Timeline launcher
+
+;; TODO extract plumbing in common with snapshot-timemachine
+(defun snapshot-timeline ()
+  "Display a timeline of snapshots of the current file."
+  (interactive)
+  (if (not (buffer-file-name))
+      (message "The current buffer isn't visiting a file.")
+    (let ((snapshot-dir
+           (snapshot-timemachine-find-snapshot-dir default-directory)))
+      (if (null snapshot-dir)
+          (message "Snapshot folder not found")
+        (let ((snapshots (cl-sort
+                          (snapshot-timemachine-file-snapshots
+                           (buffer-file-name) snapshot-dir)
+                          #'< :key #'snapshot-id)))
+          (if (null snapshots)
+              (message "No snapshots found")
+            (let ((timeline-buffer (format "timeline:%s" (buffer-name)))
+                  (file-name (buffer-file-name)))
+              (with-current-buffer (get-buffer-create timeline-buffer)
+                (setq snapshot-timemachine-original-file    file-name
+                      snapshot-timemachine-buffer-snapshots snapshots
+                      snapshot-timemachine-snapshot-dir     snapshot-dir
+                      tabulated-list-entries
+                      (snapshot-timeline-format-snapshots snapshots))
+                (snapshot-timeline-mode)
+                (tabulated-list-print)
+                (switch-to-buffer timeline-buffer)))))))))
 
 
 (provide 'snapshot-timemachine)
