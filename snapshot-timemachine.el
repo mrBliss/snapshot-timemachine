@@ -325,7 +325,7 @@ TODO"
     (let ((snapshot-dir
            (snapshot-timemachine-find-snapshot-dir default-directory)))
       (if (null snapshot-dir)
-          (message "Snapshot folder '%s' not found" snapshot-dirname)
+          (message "Snapshot folder not found")
         (let ((snapshots (cl-sort
                           (snapshot-timemachine-file-snapshots
                            (buffer-file-name) snapshot-dir)
