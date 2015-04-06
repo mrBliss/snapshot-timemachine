@@ -512,6 +512,7 @@ in SNAPSHOT-DIR."
             (snapshot-timeline-format-snapshots snapshots))
       (snapshot-timeline-mode)
       (tabulated-list-print)
+      (hl-line-mode 1)
       (switch-to-buffer timeline-buffer))))
 
 (defun snapshot-timeline (&optional file)
