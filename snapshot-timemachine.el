@@ -507,12 +507,12 @@ in SNAPSHOT-DIR."
   (let ((timeline-buffer
          (format "timeline:%s" (file-name-nondirectory file))))
     (with-current-buffer (get-buffer-create timeline-buffer)
+      (snapshot-timeline-mode)
       (setq snapshot-timemachine-original-file    file
             snapshot-timemachine-buffer-snapshots snapshots
             snapshot-timemachine-snapshot-dir     snapshot-dir
             tabulated-list-entries
             (snapshot-timeline-format-snapshots snapshots))
-      (snapshot-timeline-mode)
       (tabulated-list-print)
       (hl-line-mode 1)
       (switch-to-buffer timeline-buffer))))
