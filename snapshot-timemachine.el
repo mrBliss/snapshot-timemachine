@@ -250,6 +250,25 @@ The current snapshot is stored in
           (zipper-shift-prev snapshot-timemachine-buffer-snapshots))
     (snapshot-timemachine-show-focused-snapshot)))
 
+(defun snapshot-timemachine-show-first-snapshot ()
+  "Show the first snapshot in time."
+  (interactive)
+  (if (zipper-at-start snapshot-timemachine-buffer-snapshots)
+      (message "Already at first snapshot")
+    (setq snapshot-timemachine-buffer-snapshots
+          (zipper-shift-start snapshot-timemachine-buffer-snapshots))
+    (snapshot-timemachine-show-focused-snapshot)))
+
+(defun snapshot-timemachine-show-last-snapshot ()
+  "Show the last snapshot in time."
+  (interactive)
+  (if (zipper-at-end snapshot-timemachine-buffer-snapshots)
+      (message "Already at last snapshot")
+    (setq snapshot-timemachine-buffer-snapshots
+          (zipper-shift-end snapshot-timemachine-buffer-snapshots))
+    (snapshot-timemachine-show-focused-snapshot)))
+
+
 (defun snapshot-timemachine-show-nth-snapshot ()
   "Choose which snapshot to show."
   (interactive)
@@ -289,6 +308,8 @@ The current snapshot is stored in
   :keymap
   '(("n" . snapshot-timemachine-show-next-snapshot)
     ("p" . snapshot-timemachine-show-prev-snapshot)
+    ("<" . snapshot-timemachine-show-first-snapshot)
+    (">" . snapshot-timemachine-show-last-snapshot)
     ("j" . snapshot-timemachine-show-nth-snapshot)
     ("q" . snapshot-timemachine-quit))
   :group 'snapshot-timemachine)
