@@ -45,7 +45,16 @@ The default format is \"sat 14 mar 2015 10:35\".")
 
 ;; A struct representing a snapshot.
 (cl-defstruct snapshot
-  id path date)
+  ;; An ascending numerical identifier for lookup and sorting
+  id
+  ;; The path to the snapshot directory, e.g. /home/.snapshots/2/snapshot/
+  path
+  ;; The date of the snapshot, format: (HIGH LOW USEC PSEC)
+  date
+  ;; Some extra information depending on the type of snapshots and the use
+  ;; site.
+  extra
+  )
 
 ;;; Zipper
 
@@ -468,45 +477,49 @@ FILE defaults to the file the current buffer is visiting."
 
 ;;; Interactive timeline functions and their helpers
 
-(defun snapshot-timeline-diffstat (file1 file2 &optional width)
-  "Calculate a diffstat between FILE1 and FILE2 with a maximum width of WIDTH.
-WIDTH defaults to 64 characters.  When there is no difference or
-one of the files doesn't exist, an empty string is returned.
-Otherwise, a string consisting a plus sign (with face
-`diff-added') for each added line and a minus sign (with face
-`diff-removed') for each removed line.  If the total number of
-signs would exceed WIDTH, the number of plus and minus sign is
-relative to WIDTH."
-  (if (not (and (file-exists-p file1) (file-exists-p file2)))
-      ""
-    (let ((width (or width 64))
-          (diff-output
+(defun snapshot-timeline-diffstat (file1 file2)
+  "Calculate a diffstat between FILE1 and FILE2.
+The result is cons cell (ADDED . REMOVED) of the number of lines
+added and the number of lines removed going from FILE1 to FILE2.
+Return nil when one of the two files is missing (or nil)."
+  (when (and file1 file2 (file-exists-p file1) (file-exists-p file2))
+    (let ((diff-output
            (shell-command-to-string
             (format "diff %s %s %s \"%s\" \"%s\""
                     "--old-line-format='-'"
                     "--new-line-format='+'"
                     "--unchanged-line-format=''"
                     file1 file2))))
-      (destructuring-bind (pluses . minuses)
-          (cl-loop for c across diff-output
-                   count (eq c ?+) into p
-                   count (eq c ?-) into m
-                   finally return (cons p m))
-        (let ((total (+ pluses minuses)))
-          (when (> total width)
-            (setq pluses (round (* width (/ pluses (float total))))
-                  minuses (- width pluses)))
-          (concat (propertize (make-string pluses ?+)
-                              'face 'diff-added)
-                  (propertize (make-string minuses ?-)
-                              'face 'diff-removed)))))))
+      (cl-loop for c across diff-output
+               count (eq c ?+) into p
+               count (eq c ?-) into m
+               finally return (cons p m)))))
 
-;; TODO include current version of file
-(defun snapshot-timeline-format-snapshots (snapshots &optional interesting-only)
-  "Format SNAPSHOTS to be used as `tabulated-list-entries'.
-An entry consists of the snapshot's name, its date and a diffstat
-with the previous snapshot.  If INTERESTING-ONLY is non-nil, only
-snapshots in which the file was changed are returned."
+(defun snapshot-timeline-format-diffstat (diffstat &optional width)
+  "Format DIFFSTAT as plus and minus signs with a maximum width of WIDTH.
+WIDTH defaults to 64 characters.  When there DIFFSTAT is nil
+or (0 . 0), an empty string is returned.  Otherwise, a string
+consisting a plus sign (with face `diff-added') for each added
+line and a minus sign (with face `diff-removed') for each removed
+line.  If the total number of signs would exceed WIDTH, the
+number of plus and minus sign is relative to WIDTH."
+  (destructuring-bind (pluses . minuses) diffstat
+    (let ((width (or width 64))
+          (total (+ pluses minuses)))
+      (when (> total width)
+        (setq pluses (round (* width (/ pluses (float total))))
+              minuses (- width pluses)))
+      (concat (propertize (make-string pluses ?+)
+                          'face 'diff-added)
+              (propertize (make-string minuses ?-)
+                          'face 'diff-removed)))))
+
+(defun snapshot-timeline-add-diffstats (snapshots)
+  "Add a diffstat with the previous snapshot to each snapshot of SNAPSHOTS.
+The diffstat is stored as a cons (ADDED . REMOVED) in the `extra'
+field of the snapshot structs.  If the `extra' already contains a
+diffstat, it is not recalculated.  Modify the SNAPSHOTS in-place
+and return them."
   (cl-labels ((diffstat (s1 s2)
                         (snapshot-timeline-diffstat
                          (snapshot-timemachine-path-in-snapshot
@@ -514,23 +527,39 @@ snapshots in which the file was changed are returned."
                           snapshot-timemachine-snapshot-dir)
                          (snapshot-timemachine-path-in-snapshot
                           snapshot-timemachine-original-file s2
-                          snapshot-timemachine-snapshot-dir) 40)))
-    (cl-loop
-     for s in snapshots and s-prev in (cons nil snapshots)
-     for diffstat = (when s-prev (diffstat s-prev s))
-     unless (and interesting-only (string-empty-p diffstat))
-     collect
-     (list (snapshot-id s)
-           (vector
-            (format "%5s"
-                    ;; We do it like this because we don't want the padding
-                    ;; spaces to be underlined
-                    (propertize (number-to-string (snapshot-id s))
-                                'face 'button))
-            (format-time-string
-             snapshot-timemachine-time-format
-             (snapshot-date s))
-            (or diffstat ""))))))
+                          snapshot-timemachine-snapshot-dir))))
+    (unless (cl-some (lambda (s) (consp (snapshot-extra s))) snapshots)
+      (cl-loop
+       for s in snapshots and s-prev in (cons nil snapshots)
+       for diffstat = (when s-prev (message "DIFFSTAT") (diffstat s-prev s))
+       do (setf (snapshot-extra s) diffstat)))
+    snapshots))
+
+;; TODO include current version of file
+(defun snapshot-timeline-format-snapshots (snapshots &optional interesting-only)
+  "Format SNAPSHOTS to be used as `tabulated-list-entries'.
+An entry consists of the snapshot's name, its date and a diffstat
+with the previous snapshot.  If INTERESTING-ONLY is non-nil, only
+snapshots in which the file was changed are returned."
+  (cl-loop
+   for s in snapshots
+   for diffstat = (snapshot-extra s)
+   unless (and interesting-only
+               (or (null diffstat)
+                   (and (zerop (car diffstat)) (zerop (cdr diffstat)))))
+   collect (list (snapshot-id s)
+                 (vector
+                  (format "%5s"
+                          ;; We do it like this because we don't want the padding
+                          ;; spaces to be underlined
+                          (propertize (number-to-string (snapshot-id s))
+                                      'face 'button))
+                  (format-time-string
+                   snapshot-timemachine-time-format
+                   (snapshot-date s))
+                  (if diffstat
+                      (snapshot-timeline-format-diffstat diffstat 40)
+                    "")))))
 
 (defun snapshot-timeline-toggle-interesting-only ()
   "Toggle between showing all and only interesting snapshots.
@@ -654,11 +683,14 @@ in SNAPSHOT-DIR."
          (format "timeline:%s" (file-name-nondirectory file))))
     (with-current-buffer (get-buffer-create timeline-buffer)
       (snapshot-timeline-mode)
-      (setq snapshot-timemachine-original-file    file
-            snapshot-timemachine-buffer-snapshots snapshots
-            snapshot-timemachine-snapshot-dir     snapshot-dir
+      (setq snapshot-timemachine-original-file file
+            snapshot-timemachine-snapshot-dir  snapshot-dir
+            snapshot-timemachine-buffer-snapshots
+            (snapshot-timeline-add-diffstats
+             snapshots)
             tabulated-list-entries
-            (snapshot-timeline-format-snapshots snapshots))
+            (snapshot-timeline-format-snapshots
+             snapshot-timemachine-buffer-snapshots))
       (tabulated-list-print)
       (hl-line-mode 1)
       (switch-to-buffer timeline-buffer))))
