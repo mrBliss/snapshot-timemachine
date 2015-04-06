@@ -133,15 +133,15 @@ when no element satisfies PREDICATE."
   (or
    ;; First go all the way to the end
    (cl-loop for z* = z then (zipper-shift-next z*)
-            until (zipper-at-end z*)
             if (funcall predicate (zipper-focus z*))
-            return z*)
+            return z*
+            until (zipper-at-end z*))
    ;; If we haven't found it by then, start again from z and go all the way to
    ;; the start
    (cl-loop for z* = z then (zipper-shift-prev z*)
-            until (zipper-at-start z*)
             if (funcall predicate (zipper-focus z*))
-            return z*)))
+            return z*
+            until (zipper-at-start z*))))
 
 ;;; Internal variables
 
