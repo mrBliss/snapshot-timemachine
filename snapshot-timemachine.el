@@ -399,7 +399,7 @@ the time machine."
 ;;; Timemachine launcher
 
 ;;;###autoload
-(cl-defun snapshot-timemachine (&optional file)
+(defun snapshot-timemachine (&optional file)
   "Start the snapshot timemachine for FILE.
 FILE defaults to the file the current buffer is visiting."
   (interactive)
