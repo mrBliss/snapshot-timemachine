@@ -332,7 +332,7 @@ The file is stored in `snapshot-timemachine-original-file'."
                   (snapshot-timemachine-snapshots-differ
                    s current-snapshot)))))
       (if (null z*)
-          (message "No differing snapshot found.")
+          (message "No next differing snapshot found.")
         (setq snapshot-timemachine-buffer-snapshots z*)
         (snapshot-timemachine-show-focused-snapshot)))))
 
@@ -349,7 +349,7 @@ The file is stored in `snapshot-timemachine-original-file'."
                   (snapshot-timemachine-snapshots-differ
                    s current-snapshot)))))
       (if (null z*)
-          (message "No differing snapshot found.")
+          (message "No previous differing snapshot found.")
         (setq snapshot-timemachine-buffer-snapshots z*)
         (snapshot-timemachine-show-focused-snapshot)))))
 
