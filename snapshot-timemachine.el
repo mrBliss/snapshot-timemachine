@@ -125,7 +125,7 @@ Return Z unchanged when already at the first element in the list."
 (defun zipper-shift-forwards-to (z predicate)
   "Shift the zipper Z forwards to an element satisfying PREDICATE.
 Returns nil when no element satisfies PREDICATE."
-  (cl-loop for z* = z then (zipper-shift-next z*)
+  (cl-loop for z* = (zipper-shift-next z) then (zipper-shift-next z*)
            if (funcall predicate (zipper-focus z*))
            return z*
            until (zipper-at-end z*)))
@@ -133,7 +133,7 @@ Returns nil when no element satisfies PREDICATE."
 (defun zipper-shift-backwards-to (z predicate)
   "Shift the zipper Z backwards to an element satisfying PREDICATE.
 Returns nil when no element satisfies PREDICATE."
-  (cl-loop for z* = z then (zipper-shift-prev z*)
+  (cl-loop for z* = (zipper-shift-prev z) then (zipper-shift-prev z*)
            if (funcall predicate (zipper-focus z*))
            return z*
            until (zipper-at-start z*)))
@@ -179,6 +179,21 @@ Both `snapshot-timemachine-original-file' and
   (snapshot-timemachine-path-in-snapshot
    snapshot-timemachine-original-file s
    snapshot-timemachine-snapshot-dir))
+
+(defun snapshot-timemachine-interesting-diffstatp (diffstat)
+  "Return t when the given DIFFSTAT (format: (ADDED . REMOVED)) is interesting.
+A diffstat is interesting when it is not nil and ADDED or REMOVED
+is greater than zero."
+  (and diffstat
+       (or (< 0 (car diffstat))
+           (< 0 (cdr diffstat)))))
+
+(defun snapshot-interestingp (s)
+  "Return t when snapshot S's diffstat is interesting.
+See `snapshot-timemachine-interesting-diffstatp' to know what
+'interesting' means in this context."
+  (snapshot-timemachine-interesting-diffstatp (snapshot-diffstat s)))
+
 
 ;;; Locating snapshots
 (defun snapshot-timemachine-find-snapshot-dir (dir)
@@ -318,28 +333,14 @@ The current snapshot is stored in
           (setq snapshot-timemachine-buffer-snapshots z*)
           (snapshot-timemachine-show-focused-snapshot))))))
 
-(defun snapshot-timemachine-snapshots-differ (s1 s2)
-  "Return t when the snapshots S1 and S2 of the file differ.
-The file is stored in `snapshot-timemachine-original-file'."
-  (unless (string-empty-p
-           (shell-command-to-string
-            (format "diff -q \"%s\" \"%s\""
-                    (snapshot-file s1)
-                    (snapshot-file s2))))
-    t))
-
 (defun snapshot-timemachine-show-next-interesting-snapshot ()
   "Show the next snapshot in time that differs from the current one."
   (interactive)
   (if (zipper-at-end snapshot-timemachine-buffer-snapshots)
       (message "Last snapshot")
-    (let* ((current-snapshot
-            (zipper-focus snapshot-timemachine-buffer-snapshots))
-           (z* (zipper-shift-forwards-to
-                snapshot-timemachine-buffer-snapshots
-                (lambda (s)
-                  (snapshot-timemachine-snapshots-differ
-                   s current-snapshot)))))
+    (let ((z* (zipper-shift-forwards-to
+               snapshot-timemachine-buffer-snapshots
+               #'snapshot-interestingp)))
       (if (null z*)
           (message "No next differing snapshot found.")
         (setq snapshot-timemachine-buffer-snapshots z*)
@@ -350,13 +351,9 @@ The file is stored in `snapshot-timemachine-original-file'."
   (interactive)
   (if (zipper-at-start snapshot-timemachine-buffer-snapshots)
       (message "First snapshot")
-    (let* ((current-snapshot
-            (zipper-focus snapshot-timemachine-buffer-snapshots))
-           (z* (zipper-shift-backwards-to
-                snapshot-timemachine-buffer-snapshots
-                (lambda (s)
-                  (snapshot-timemachine-snapshots-differ
-                   s current-snapshot)))))
+    (let ((z* (zipper-shift-backwards-to
+               snapshot-timemachine-buffer-snapshots
+               #'snapshot-interestingp)))
       (if (null z*)
           (message "No previous differing snapshot found.")
         (setq snapshot-timemachine-buffer-snapshots z*)
@@ -379,7 +376,6 @@ the time machine."
                then (progn (forward-line) (point))
                while (< pos (point-max))
                until (= focused-snapshot-id (tabulated-list-get-id pos))))))
-
 
 (defun snapshot-timemachine-quit ()
   "Exit the timemachine."
@@ -438,6 +434,24 @@ bound to the second argument."
 
 ;;; Timemachine launcher
 
+(defun snapshot-timemachine-add-diffstats (snapshots)
+  "Add a diffstat with the previous snapshot to each snapshot of SNAPSHOTS.
+The diffstat is stored as a cons (ADDED . REMOVED) in the
+`diffstat' field of the snapshot structs.  If the `diffstat'
+already contains a diffstat, it is not recalculated.  Modify the
+SNAPSHOTS in-place and return them."
+  (cl-labels ((diffstat (s1 s2)
+                        (snapshot-timeline-diffstat
+                         (snapshot-file s1) (snapshot-file s2))))
+    (unless (cl-some (lambda (s) (consp (snapshot-diffstat s))) snapshots)
+      (cl-loop
+       for s in snapshots and s-prev in (cons nil snapshots)
+       for diffstat = (when s-prev (diffstat s-prev s))
+       do (setf (snapshot-diffstat s) diffstat)))
+    snapshots))
+
+
+
 (defun snapshot-timemachine-create (file snapshots snapshot-dir &optional id)
   "Create and return a snapshot time machine buffer.
 The snapshot timemachine will be of FILE using the SNAPSHOTS
@@ -445,22 +459,29 @@ located in SNAPSHOT-DIR.  SNAPSHOTS must be a non-empty list.
 The snapshot with ID is displayed unless ID is not passed (or
 nil), in which case the last snapshot is displayed."
   (let* ((timemachine-buffer
-          (format "snapshot:%s" (file-name-nondirectory file)))
-         ;; We say is must be non-empty, so `zipper-from-list' shouldn't fail.
-         (z (zipper-from-list snapshots))
-         (shifted-z (when id (zipper-shift-to
-                              z (lambda (s) (= (snapshot-id s) id)))))
-         ;; Shifting can still fail if ID is missing
-         (z* (or shifted-z (zipper-shift-end z))))
+          (format "snapshot:%s" (file-name-nondirectory file))))
     (cl-destructuring-bind (cur-line mode)
         (with-current-buffer (find-file-noselect file t)
           (list (line-number-at-pos) major-mode))
       (with-current-buffer (get-buffer-create timemachine-buffer)
         (switch-to-buffer timemachine-buffer)
         (funcall mode)
-        (setq snapshot-timemachine-original-file    file
-              snapshot-timemachine-buffer-snapshots z*
-              snapshot-timemachine-snapshot-dir     snapshot-dir)
+        (setq snapshot-timemachine-original-file file
+              snapshot-timemachine-snapshot-dir  snapshot-dir
+              ;; `snapshot-timemachine-add-diffstats' needs the above two
+              ;; buffer-local variables.
+              snapshot-timemachine-buffer-snapshots
+              ;; We say is must be non-empty, so `zipper-from-list' shouldn't
+              ;; fail.
+              (let* ((z (zipper-from-list
+                        (snapshot-timemachine-add-diffstats
+                                          snapshots)))
+                     (shifted-z
+                      (when id (zipper-shift-to
+                                z (lambda (s) (= (snapshot-id s) id)))))
+                     ;; Shifting can still fail if ID is missing
+                     (z* (or shifted-z (zipper-shift-end z))))
+                z*))
         (snapshot-timemachine-show-focused-snapshot)
         (goto-char (point-min))
         (forward-line (1- cur-line))
@@ -515,30 +536,6 @@ number of plus and minus sign is relative to WIDTH."
               (propertize (make-string minuses ?-)
                           'face 'diff-removed)))))
 
-(defun snapshot-timeline-add-diffstats (snapshots)
-  "Add a diffstat with the previous snapshot to each snapshot of SNAPSHOTS.
-The diffstat is stored as a cons (ADDED . REMOVED) in the
-`diffstat' field of the snapshot structs.  If the `diffstat'
-already contains a diffstat, it is not recalculated.  Modify the
-SNAPSHOTS in-place and return them."
-  (cl-labels ((diffstat (s1 s2)
-                        (snapshot-timeline-diffstat
-                         (snapshot-file s1) (snapshot-file s2))))
-    (unless (cl-some (lambda (s) (consp (snapshot-diffstat s))) snapshots)
-      (cl-loop
-       for s in snapshots and s-prev in (cons nil snapshots)
-       for diffstat = (when s-prev (diffstat s-prev s))
-       do (setf (snapshot-diffstat s) diffstat)))
-    snapshots))
-
-(defun snapshot-timeline-interesting-diffstatp (diffstat)
-  "Return t when the given DIFFSTAT (format: (ADDED . REMOVED)) is interesting.
-A diffstat is interesting when it is not nil and ADDED or REMOVED
-is greater than zero."
-  (and diffstat
-       (or (< 0 (car diffstat))
-           (< 0 (cdr diffstat)))))
-
 ;; TODO include current version of file
 (defun snapshot-timeline-format-snapshots (snapshots &optional interesting-only)
   "Format SNAPSHOTS to be used as `tabulated-list-entries'.
@@ -547,9 +544,9 @@ with the previous snapshot.  If INTERESTING-ONLY is non-nil, only
 snapshots in which the file was changed are returned."
   (cl-loop
    for s in snapshots
-   for diffstat = (snapshot-diffstat s)
    unless (and interesting-only
-               (not (snapshot-timeline-interesting-diffstatp diffstat)))
+               (not (snapshot-interestingp s)))
+   for diffstat = (snapshot-diffstat s)
    collect (list (snapshot-id s)
                  (vector
                   (format "%5s"
@@ -646,7 +643,6 @@ the last snapshot, for example when the order is reversed."
   (goto-char (point-max))
   (forward-line -1))
 
-
 (defun snapshot-timeline-goto-next-interesting-snapshot ()
   "Go to the next snapshot in the time line that differs from the current one."
   (interactive)
@@ -655,8 +651,7 @@ the last snapshot, for example when the order is reversed."
            for id = (tabulated-list-get-id)
            for s = (car (cl-member id snapshot-timemachine-buffer-snapshots
                                    :key #'snapshot-id))
-           until (and s (snapshot-timeline-interesting-diffstatp
-                         (snapshot-diffstat s)))))
+           until (and s (snapshot-interestingp s))))
 
 (defun snapshot-timeline-goto-prev-interesting-snapshot ()
   "Go to the previous snapshot in the time line that differs from the current one."
@@ -666,8 +661,7 @@ the last snapshot, for example when the order is reversed."
            for id = (tabulated-list-get-id)
            for s = (car (cl-member id snapshot-timemachine-buffer-snapshots
                                    :key #'snapshot-id))
-           until (and s (snapshot-timeline-interesting-diffstatp
-                         (snapshot-diffstat s)))))
+           until (and s (snapshot-interestingp s))))
 
 ;;; Minor-mode for time line
 
@@ -714,7 +708,7 @@ in SNAPSHOT-DIR."
       (setq snapshot-timemachine-original-file file
             snapshot-timemachine-snapshot-dir  snapshot-dir
             snapshot-timemachine-buffer-snapshots
-            (snapshot-timeline-add-diffstats
+            (snapshot-timemachine-add-diffstats
              snapshots)
             tabulated-list-entries
             (snapshot-timeline-format-snapshots
