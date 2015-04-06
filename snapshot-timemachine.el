@@ -435,7 +435,7 @@ ARGS should be a list of two arguments, the snapshot directory
 will be bound to the first argument, and the snapshots will be
 bound to the second argument."
   (declare (indent 2))
-  `(snapshot-validate file (lambda (,@args) ,@body)))
+  `(snapshot-validate file (lambda ,args ,@body)))
 
 ;;; Timemachine launcher
 
@@ -624,16 +624,29 @@ for B."
   (diff (snapshot-file s1) (snapshot-file s2)
         snapshot-timemachine-diff-switches))
 
+(defun snapshot-timeline-validate-A-B (fn)
+  "Check that A and B are marked, then call FN with the corresponding snapshots.
+The user is informed of missing marks.  FN must accept two
+arguments, the snapshots on which the A and B marks are placed."
+  (destructuring-bind (a . b) (snapshot-timeline-get-A-and-B)
+    (if (or (null a) (null b))
+        (message "Please mark both A and B.")
+      (funcall fn
+               (snapshot-timeline-snapshot-by-id a)
+               (snapshot-timeline-snapshot-by-id b)))))
+
+(defmacro with-A-B (args &rest body)
+  "Call `snapshot-timeline-validate-A-B' passing a lambda with ARGS and BODY.
+ARGS should be a list of two arguments, snapshots indicated by
+marks A and B will be bound to them."
+  (declare (indent 1))
+  `(snapshot-timeline-validate-A-B (lambda ,args ,@body)))
+
 (defun snapshot-timeline-show-diff-A-B ()
   "Show the diff between the snapshots marked as A and B.
 The user is informed of missing marks."
   (interactive)
-  (destructuring-bind (a . b) (snapshot-timeline-get-A-and-B)
-    (if (or (null a) (null b))
-        (message "Please mark both A and B.")
-      (snapshot-timeline-show-diff-between
-       (snapshot-timeline-snapshot-by-id a)
-       (snapshot-timeline-snapshot-by-id b)))))
+  (with-A-B (a b) (snapshot-timeline-show-diff-between a b)))
 
 (defun snapshot-timeline-show-snapshot-or-diff ()
   "Show the snapshot under the point or the diff, depending on the column.
