@@ -47,6 +47,10 @@ The default format is \"sat 14 mar 2015 10:35\".")
   "The switches to pass to diff when viewing a diff between
 snapshots of a file.  See `diff-switches'.")
 
+(defvar snapshot-timemachine-include-current t
+  "Include the current version of the files when stepping through
+  the snapshots.")
+
 ;;; Zipper
 
 ;; A zipper suited for tracking focus in a list.
@@ -243,12 +247,25 @@ containing the snapshots."
 
 (defun snapshot-timemachine-file-snapshots (file snapshot-dir)
   "Return a list of all the snapshots of this FILE in SNAPSHOT-DIR.
-Snapshots in which FILE doesn't exist are discarded."
-  (cl-loop for snapshot in (snapshot-timemachine-find-snapshots snapshot-dir)
-           for path-in-snapshot = (snapshot-timemachine-path-in-snapshot
-                                   file snapshot snapshot-dir)
-           when (file-exists-p path-in-snapshot)
-           collect snapshot))
+Snapshots in which FILE doesn't exist are discarded.  Includes
+the current file when `snapshot-timemachine-include-current' is
+non-nil."
+  (let ((snapshots
+         (cl-loop for snapshot in (snapshot-timemachine-find-snapshots
+                                   snapshot-dir)
+                  for path-in-snapshot = (snapshot-timemachine-path-in-snapshot
+                                          file snapshot snapshot-dir)
+                  when (file-exists-p path-in-snapshot)
+                  collect snapshot)))
+    (if snapshot-timemachine-include-current
+        (nconc snapshots
+               (list (make-snapshot
+                      :id most-positive-fixnum
+                      :name "current"
+                      :path (file-name-directory
+                             (directory-file-name snapshot-dir))
+                      :date (nth 5 (file-attributes file)))))
+      snapshots)))
 
 ;;; Interactive timemachine functions and their helpers
 
