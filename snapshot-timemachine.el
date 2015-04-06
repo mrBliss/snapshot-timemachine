@@ -648,6 +648,18 @@ The user is informed of missing marks."
   (interactive)
   (with-A-B (a b) (snapshot-timeline-show-diff-between a b)))
 
+(defun snapshot-timeline-ediff-A-B ()
+  "Start an ediff session between the snapshots marked as A and B.
+The user is informed of missing marks."
+  (interactive)
+  (with-A-B (a b) (ediff (snapshot-file a) (snapshot-file b))))
+
+(defun snapshot-timeline-emerge-A-B ()
+  "Start an emerge session between the snapshots marked as A and B.
+The user is informed of missing marks."
+  (interactive)
+  (with-A-B (a b) (emerge-files nil (snapshot-file a) (snapshot-file b) nil)))
+
 (defun snapshot-timeline-show-snapshot-or-diff ()
   "Show the snapshot under the point or the diff, depending on the column.
 If the point is located in the Diffstat column, a diff with the
@@ -724,7 +736,9 @@ the last snapshot, for example when the order is reversed."
     (define-key map (kbd "a")   'snapshot-timeline-mark-as-A)
     (define-key map (kbd "b")   'snapshot-timeline-mark-as-B)
     (define-key map (kbd "d")   'snapshot-timeline-show-diff-A-B)
+    (define-key map (kbd "e")   'snapshot-timeline-ediff-A-B)
     (define-key map (kbd "i")   'snapshot-timeline-toggle-interesting-only)
+    (define-key map (kbd "m")   'snapshot-timeline-emerge-A-B)
     (define-key map (kbd "N")   'snapshot-timeline-goto-next-interesting-snapshot)
     (define-key map (kbd "P")   'snapshot-timeline-goto-prev-interesting-snapshot)
     (define-key map (kbd "v")   'snapshot-timeline-show-snapshot)
