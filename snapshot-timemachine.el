@@ -221,17 +221,17 @@ Snapshots in which FILE doesn't exist are discarded."
 The current snapshot is stored in
 `snapshot-timemachine-buffer-snapshots'."
   (let* ((snapshot (zipper-focus snapshot-timemachine-buffer-snapshots))
+         (snapshot-file (snapshot-timemachine-path-in-snapshot
+                         snapshot-timemachine-original-file snapshot
+                         snapshot-timemachine-snapshot-dir))
          (time (format-time-string
                 snapshot-timemachine-time-format
                 (snapshot-date snapshot))))
     (setq buffer-read-only nil)
-    (insert-file-contents
-     (snapshot-timemachine-path-in-snapshot
-      snapshot-timemachine-original-file snapshot
-      snapshot-timemachine-snapshot-dir)
-     nil nil nil t)
+    (insert-file-contents snapshot-file nil nil nil t)
     (setq buffer-read-only t
-          buffer-file-name (snapshot-path snapshot))
+          buffer-file-name snapshot-file
+          default-directory (file-name-directory snapshot-file))
     (set-buffer-modified-p nil)
     (setq mode-line-buffer-identification
           (list (propertized-buffer-identification "%12b") "@"
