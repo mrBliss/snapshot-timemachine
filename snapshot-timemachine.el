@@ -503,10 +503,11 @@ relative to WIDTH."
                               'face 'diff-removed)))))))
 
 ;; TODO include current version of file
-(defun snapshot-timeline-format-snapshots (snapshots)
+(defun snapshot-timeline-format-snapshots (snapshots &optional interesting-only)
   "Format SNAPSHOTS to be used as `tabulated-list-entries'.
 An entry consists of the snapshot's name, its date and a diffstat
-with the previous snapshot."
+with the previous snapshot.  If INTERESTING-ONLY is non-nil, only
+snapshots in which the file was changed are returned."
   (cl-labels ((diffstat (s1 s2)
                         (snapshot-timeline-diffstat
                          (snapshot-timemachine-path-in-snapshot
@@ -517,6 +518,8 @@ with the previous snapshot."
                           snapshot-timemachine-snapshot-dir) 40)))
     (cl-loop
      for s in snapshots and s-prev in (cons nil snapshots)
+     for diffstat = (when s-prev (diffstat s-prev s))
+     unless (and interesting-only (string-empty-p diffstat))
      collect
      (list (snapshot-id s)
            (vector
@@ -528,7 +531,23 @@ with the previous snapshot."
             (format-time-string
              snapshot-timemachine-time-format
              (snapshot-date s))
-            (if (not s-prev) "" (diffstat s-prev s)))))))
+            (or diffstat ""))))))
+
+(defun snapshot-timeline-toggle-interesting-only ()
+  "Toggle between showing all and only interesting snapshots.
+A snapshot is interesting when it differs from the previous
+snapshot."
+  (interactive)
+  ;; When there are as many entries shown as there are snapshots, we assume
+  ;; we're displaying all entries, so switch to interesting-only, and vice
+  ;; versa.  The condition can also be true when all snapshots are
+  ;; interesting, in which case toggling doesn't make sense.
+  (setq tabulated-list-entries
+        (snapshot-timeline-format-snapshots
+         snapshot-timemachine-buffer-snapshots
+         (= (length tabulated-list-entries)
+            (length snapshot-timemachine-buffer-snapshots))))
+        (tabulated-list-print t))
 
 (defun snapshot-timeline-show-snapshot ()
   "Show the snapshot under the point in the snapshot time machine."
@@ -567,6 +586,7 @@ shown (`snapshot-timeline-show-snapshot-or-diff')."
     (set-keymap-parent map tabulated-list-mode-map)
     (define-key map (kbd "RET") 'snapshot-timeline-show-snapshot-or-diff)
     (define-key map (kbd "v")   'snapshot-timeline-show-snapshot)
+    (define-key map (kbd "i")   'snapshot-timeline-toggle-interesting-only)
     map)
   "Local keymap for `snapshot-timeline-mode' buffers.")
 
