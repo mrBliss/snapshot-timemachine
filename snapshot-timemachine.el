@@ -544,9 +544,8 @@ with the previous snapshot.  If INTERESTING-ONLY is non-nil, only
 snapshots in which the file was changed are returned."
   (cl-loop
    for s in snapshots
-   unless (and interesting-only
-               (not (snapshot-interestingp s)))
    for diffstat = (snapshot-diffstat s)
+   unless (and interesting-only (not (snapshot-interestingp s)))
    collect (list (snapshot-id s)
                  (vector
                   (format "%5s"
