@@ -599,6 +599,20 @@ shown (`snapshot-timeline-show-snapshot-or-diff')."
   (snapshot-timeline-unmark ?B)
   (tabulated-list-put-tag "B"))
 
+(defun snapshot-timeline-goto-start ()
+  "Go to the first snapshot in the time line.
+The first snapshot in the time line is not always chronologically
+the first snapshot, for example when the order is reversed."
+  (interactive)
+  (goto-char (point-min)))
+
+(defun snapshot-timeline-goto-end ()
+  "Go to the last snapshot in the time line.
+The last snapshot in the time line is not always chronologically
+the last snapshot, for example when the order is reversed."
+  (interactive)
+  (goto-char (point-max))
+  (forward-line -1))
 
 ;;; Minor-mode for timeline
 
@@ -610,6 +624,8 @@ shown (`snapshot-timeline-show-snapshot-or-diff')."
     (define-key map (kbd "i")   'snapshot-timeline-toggle-interesting-only)
     (define-key map (kbd "a")   'snapshot-timeline-mark-as-A)
     (define-key map (kbd "b")   'snapshot-timeline-mark-as-B)
+    (define-key map (kbd "<")   'snapshot-timeline-goto-start)
+    (define-key map (kbd ">")   'snapshot-timeline-goto-end)
     map)
   "Local keymap for `snapshot-timeline-mode' buffers.")
 
