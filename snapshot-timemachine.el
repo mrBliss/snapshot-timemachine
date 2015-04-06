@@ -772,7 +772,7 @@ the last snapshot, for example when the order is reversed."
             ("Diffstat" 40 nil)])
     (tabulated-list-init-header)))
 
-;;; Time Line launcher
+;;; Time line launcher
 
 (defun snapshot-timeline-create (file snapshots snapshot-dir)
   "Create and return a snapshot time line buffer.
