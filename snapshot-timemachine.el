@@ -764,7 +764,7 @@ the last snapshot, for example when the order is reversed."
   (let ((time-width (length
                      (format-time-string
                       snapshot-timemachine-time-format '(0 0 0 0)))))
-    (setq tabulated-list-padding 1
+    (setq tabulated-list-padding 2
           tabulated-list-format
           ;; TODO make widths configurable
           `[("Snapshot" 8 t)
