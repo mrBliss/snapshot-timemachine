@@ -284,7 +284,7 @@ The current snapshot is stored in
                   (zipper-to-list snapshot-timemachine-buffer-snapshots)))
          (choice (cdr (assoc
                        (completing-read
-                        "Choose snapshot: " (copy-list candidates) nil t)
+                        "Choose snapshot: " candidates nil t)
                        candidates))))
     (when choice
       (let ((z* (zipper-shift-to
