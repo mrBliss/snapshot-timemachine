@@ -167,6 +167,8 @@ when no element satisfies PREDICATE."
 (cl-defstruct snapshot
   ;; An ascending numerical identifier for lookup and sorting
   id
+  ;; The name of the buffer to display
+  name
   ;; The path to the snapshot directory, e.g. /home/.snapshots/2/snapshot/
   path
   ;; The date of the snapshot, format: (HIGH LOW USEC PSEC)
@@ -219,6 +221,7 @@ For each valid snapshot directory, a
            when (string-match-p "[0-9]+" filename)
            collect (make-snapshot
                     :id (string-to-number filename)
+                    :name filename
                     :path (concat file "/snapshot/")
                     :date (nth 5 (file-attributes file)))))
 
@@ -267,11 +270,11 @@ The current snapshot is stored in
     (setq mode-line-buffer-identification
           (list (propertized-buffer-identification "%12b") "@"
                 (propertize
-                 (number-to-string (snapshot-id snapshot))
+                 (snapshot-name snapshot)
                  'face 'bold)
                 " " time))
-    (message "Snapshot %d from %s"
-             (snapshot-id snapshot) time)))
+    (message "Snapshot %s from %s"
+             (snapshot-name snapshot) time)))
 
 (defun snapshot-timemachine-show-next-snapshot ()
   "Show the next snapshot in time."
@@ -315,8 +318,8 @@ The current snapshot is stored in
   (let* ((candidates
           (mapcar (lambda (snapshot)
                     (cons
-                     (format "Snapshot %d from %s"
-                             (snapshot-id snapshot)
+                     (format "Snapshot %s from %s"
+                             (snapshot-name snapshot)
                              (format-time-string
                               snapshot-timemachine-time-format
                               (snapshot-date snapshot)))
@@ -550,10 +553,10 @@ snapshots in which the file was changed are returned."
    unless (and interesting-only (not (snapshot-interestingp s)))
    collect (list (snapshot-id s)
                  (vector
-                  (format "%5s"
+                  (format "%5s" ;; TODO configurable
                           ;; We do it like this because we don't want the padding
                           ;; spaces to be underlined
-                          (propertize (number-to-string (snapshot-id s))
+                          (propertize (snapshot-name s)
                                       'face 'button))
                   (format-time-string
                    snapshot-timemachine-time-format
