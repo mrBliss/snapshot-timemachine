@@ -622,9 +622,19 @@ shown (`snapshot-timeline-show-snapshot-or-diff')."
      id)))
 
 (defun snapshot-timeline-show-diff ()
-  "TODO"
+  "Show the diff between this snapshot and the previous one.
+When there is no previous snapshot or there are no changes, a
+message will tell the user so."
   (interactive)
-  nil)
+  (let* ((id1 (save-excursion (forward-line -1) (tabulated-list-get-id)))
+         (id2 (tabulated-list-get-id))
+         (s1 (snapshot-timeline-snapshot-by-id id1))
+         (s2 (snapshot-timeline-snapshot-by-id id2)))
+    (cond ((or (null s1) (null s2))
+           (message "No diff here"))
+          ((not (snapshot-interestingp s2))
+           (message "No changes between snapshots"))
+          (t (snapshot-timeline-show-diff-between s1 s2)))))
 
 (defun snapshot-timeline-snapshot-by-id (id)
   "Return the snapshot in `snapshot-timemachine-buffer-snapshots' with ID.
@@ -770,7 +780,7 @@ the last snapshot, for example when the order is reversed."
     (define-key map (kbd "v")   'snapshot-timeline-show-snapshot)
     (define-key map (kbd "<")   'snapshot-timeline-goto-start)
     (define-key map (kbd ">")   'snapshot-timeline-goto-end)
-    (define-key map (kbd "=")   'snapshot-timeline-show-diff-A-B)
+    (define-key map (kbd "=")   'snapshot-timeline-show-diff)
     map)
   "Local keymap for `snapshot-timeline-mode' buffers.")
 
