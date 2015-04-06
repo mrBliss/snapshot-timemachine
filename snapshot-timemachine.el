@@ -474,14 +474,20 @@ with the previous snapshot."
                          (snapshot-timemachine-path-in-snapshot
                           snapshot-timemachine-original-file s2
                           snapshot-timemachine-snapshot-dir) 40)))
-    (cl-loop for s in snapshots and s-prev in (cons nil snapshots)
-             collect
-             (list (snapshot-id s)
-                   (vector (format "%5d" (snapshot-id s)) ;; TODO make clickable
-                           (format-time-string
-                            snapshot-timemachine-time-format
-                            (snapshot-date s))
-                           (if (not s-prev) "" (diffstat s-prev s)))))))
+    (cl-loop
+     for s in snapshots and s-prev in (cons nil snapshots)
+     collect
+     (list (snapshot-id s)
+           (vector
+            (format "%5s"
+                    ;; We do it like this because we don't want the padding
+                    ;; spaces to be underlined
+                    (propertize (number-to-string (snapshot-id s))
+                                'face 'button))
+            (format-time-string
+             snapshot-timemachine-time-format
+             (snapshot-date s))
+            (if (not s-prev) "" (diffstat s-prev s)))))))
 
 ;;; Minor-mode for timeline
 
