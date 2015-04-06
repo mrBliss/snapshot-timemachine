@@ -29,7 +29,8 @@
 ;; * snapshot timeline?
 ;; * relative timestamps
 ;; * dired?
-;; * compatibility with ZFS: http://wiki.complete.org/ZFSAutoSnapshots
+;; * compatibility with ZFS (http://wiki.complete.org/ZFSAutoSnapshots) and
+;;   snapshot systems. Make it easy to adapt to your specific needs.
 
 
 
@@ -41,7 +42,6 @@
 (defvar snapshot-timemachine-time-format "%a %d %b %Y %R"
   "The format to use when displaying a snapshot's time.
 The default format is \"sat 14 mar 2015 10:35\".")
-
 
 ;; A struct representing a snapshot.
 (cl-defstruct snapshot
@@ -71,7 +71,6 @@ The order is preserved, but the focus is lost."
       (push (car before) l)
       (setq before (cdr before)))
     l))
-
 
 (defun zipper-at-end (z)
   "Return non-nil when the zipper Z is at the last element of the list."
@@ -164,6 +163,7 @@ when no element satisfies PREDICATE."
 (defvar-local snapshot-timemachine-original-file nil
   "Maintains the path to the original (most recent) file.")
 
+;;; Locating snapshots
 
 (defun snapshot-timemachine-find-snapshot-dir (dir)
   "Find the directory containing the snapshots.
@@ -212,6 +212,8 @@ Snapshots in which FILE doesn't exist are discarded."
                                    file snapshot snapshot-dir)
            when (file-exists-p path-in-snapshot)
            collect snapshot))
+
+;;; Interactive timemachine functions and their helpers
 
 (defun snapshot-timemachine-show-focused-snapshot ()
   "Display the currently focused snapshot in the buffer.
@@ -275,7 +277,6 @@ The current snapshot is stored in
           (zipper-shift-end snapshot-timemachine-buffer-snapshots))
     (snapshot-timemachine-show-focused-snapshot)))
 
-
 (defun snapshot-timemachine-show-nth-snapshot ()
   "Choose which snapshot to show."
   (interactive)
@@ -317,7 +318,6 @@ The file is stored in `snapshot-timemachine-original-file'."
                      snapshot-timemachine-snapshot-dir))))
     t))
 
-
 (defun snapshot-timemachine-show-next-interesting-snapshot ()
   "Show the next snapshot in time that differs from the current one."
   (interactive)
@@ -352,11 +352,12 @@ The file is stored in `snapshot-timemachine-original-file'."
         (setq snapshot-timemachine-buffer-snapshots z*)
         (snapshot-timemachine-show-focused-snapshot)))))
 
-
 (defun snapshot-timemachine-quit ()
   "Exit the timemachine."
   (interactive)
   (kill-buffer))
+
+;;; Minor-mode for snapshots
 
 (define-minor-mode snapshot-timemachine-mode
   "TODO"
@@ -373,11 +374,11 @@ The file is stored in `snapshot-timemachine-original-file'."
     ("q" . snapshot-timemachine-quit))
   :group 'snapshot-timemachine)
 
+;;; Timemachine launcher
 
 ;;;###autoload
 (cl-defun snapshot-timemachine ()
-  "Start the snapper timemachine for the current file.
-TODO"
+  "Start the snapshot timemachine for the current file."
   (interactive)
   (if (not (buffer-file-name))
       (message "The current buffer isn't visiting a file.")
@@ -409,8 +410,6 @@ TODO"
                 (goto-char (point-min))
                 (forward-line (1- cur-line))
                 (snapshot-timemachine-mode)))))))))
-
-
 
 
 (provide 'snapshot-timemachine)
