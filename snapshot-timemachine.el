@@ -688,13 +688,13 @@ otherwise all marks are passed."
   "Mark a snapshot to use as file A of a diff."
   (interactive)
   (snapshot-timeline-unmark-all ?A)
-  (tabulated-list-put-tag "A"))
+  (tabulated-list-put-tag "A" t))
 
 (defun snapshot-timeline-mark-as-B ()
   "Mark a snapshot to use as file B of a diff."
   (interactive)
   (snapshot-timeline-unmark-all ?B)
-  (tabulated-list-put-tag "B"))
+  (tabulated-list-put-tag "B" t))
 
 (defun snapshot-timeline-goto-start ()
   "Go to the first snapshot in the time line.
