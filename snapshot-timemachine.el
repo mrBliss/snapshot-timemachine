@@ -575,6 +575,18 @@ snapshot."
             (length snapshot-timemachine-buffer-snapshots))))
         (tabulated-list-print t))
 
+(defun snapshot-timeline-show-snapshot-or-diff ()
+  "Show the snapshot under the point or the diff, depending on the column.
+If the point is located in the Diffstat column, a diff with the
+previous snapshot is shown (`snapshot-timeline-show-diff'),
+otherwise the snapshot of the file is
+shown (`snapshot-timeline-show-snapshot-or-diff')."
+  (interactive)
+  (if (equal "Diffstat"
+             (get-text-property (point) 'tabulated-list-column-name))
+      (snapshot-timeline-show-diff)
+    (snapshot-timeline-show-snapshot)))
+
 (defun snapshot-timeline-show-snapshot ()
   "Show the snapshot under the point in the snapshot time machine."
   (interactive)
@@ -654,17 +666,17 @@ The user is informed of missing marks."
   (interactive)
   (with-A-B (a b) (emerge-files nil (snapshot-file a) (snapshot-file b) nil)))
 
-(defun snapshot-timeline-show-snapshot-or-diff ()
-  "Show the snapshot under the point or the diff, depending on the column.
-If the point is located in the Diffstat column, a diff with the
-previous snapshot is shown (`snapshot-timeline-show-diff'),
-otherwise the snapshot of the file is
-shown (`snapshot-timeline-show-snapshot-or-diff')."
+(defun snapshot-timeline-mark-as-A ()
+  "Mark a snapshot to use as file A of a diff."
   (interactive)
-  (if (equal "Diffstat"
-             (get-text-property (point) 'tabulated-list-column-name))
-      (snapshot-timeline-show-diff)
-    (snapshot-timeline-show-snapshot)))
+  (snapshot-timeline-unmark-all ?A)
+  (tabulated-list-put-tag "A" t))
+
+(defun snapshot-timeline-mark-as-B ()
+  "Mark a snapshot to use as file B of a diff."
+  (interactive)
+  (snapshot-timeline-unmark-all ?B)
+  (tabulated-list-put-tag "B" t))
 
 (defun snapshot-timeline-unmark ()
   "Remove the mark on the current line."
@@ -683,18 +695,6 @@ otherwise all marks are passed."
              if (or (null c) (eq c (char-after pos)))
              do (progn (goto-char pos)
                        (tabulated-list-put-tag "")))))
-
-(defun snapshot-timeline-mark-as-A ()
-  "Mark a snapshot to use as file A of a diff."
-  (interactive)
-  (snapshot-timeline-unmark-all ?A)
-  (tabulated-list-put-tag "A" t))
-
-(defun snapshot-timeline-mark-as-B ()
-  "Mark a snapshot to use as file B of a diff."
-  (interactive)
-  (snapshot-timeline-unmark-all ?B)
-  (tabulated-list-put-tag "B" t))
 
 (defun snapshot-timeline-goto-start ()
   "Go to the first snapshot in the time line.
