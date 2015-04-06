@@ -650,6 +650,29 @@ the last snapshot, for example when the order is reversed."
   (goto-char (point-max))
   (forward-line -1))
 
+
+(defun snapshot-timeline-goto-next-interesting-snapshot ()
+  "Go to the next snapshot in the time line that differs from the current one."
+  (interactive)
+  (cl-loop for pos = (progn (forward-line) (point))
+           while (< pos (point-max))
+           for id = (tabulated-list-get-id)
+           for s = (car (cl-member id snapshot-timemachine-buffer-snapshots
+                                   :key #'snapshot-id))
+           until (and s (snapshot-timeline-interesting-diffstatp
+                         (snapshot-diffstat s)))))
+
+(defun snapshot-timeline-goto-prev-interesting-snapshot ()
+  "Go to the previous snapshot in the time line that differs from the current one."
+  (interactive)
+  (cl-loop for pos = (progn (forward-line -1) (point))
+           while (< (point-min) pos)
+           for id = (tabulated-list-get-id)
+           for s = (car (cl-member id snapshot-timemachine-buffer-snapshots
+                                   :key #'snapshot-id))
+           until (and s (snapshot-timeline-interesting-diffstatp
+                         (snapshot-diffstat s)))))
+
 ;;; Minor-mode for timeline
 
 (defvar snapshot-timeline-mode-map
@@ -662,6 +685,8 @@ the last snapshot, for example when the order is reversed."
     (define-key map (kbd "b")   'snapshot-timeline-mark-as-B)
     (define-key map (kbd "<")   'snapshot-timeline-goto-start)
     (define-key map (kbd ">")   'snapshot-timeline-goto-end)
+    (define-key map (kbd "N")   'snapshot-timeline-goto-next-interesting-snapshot)
+    (define-key map (kbd "P")   'snapshot-timeline-goto-prev-interesting-snapshot)
     map)
   "Local keymap for `snapshot-timeline-mode' buffers.")
 
