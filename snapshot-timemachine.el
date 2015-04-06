@@ -592,11 +592,42 @@ snapshot."
   "TODO"
   (interactive)
   nil)
+
 (defun snapshot-timeline-snapshot-by-id (id)
   "Return the snapshot in `snapshot-timemachine-buffer-snapshots' with ID.
 Return nil when no snapshot matches the ID."
   (car (cl-member id snapshot-timemachine-buffer-snapshots
                   :key #'snapshot-id)))
+
+(defun snapshot-timeline-get-A-and-B ()
+  "Return a cons cell of the ids of the marked snapshots.
+Format: (A . B) where A is an int or nil when it's not set, idem
+for B."
+  (let (a b)
+    (save-excursion
+      (cl-loop for pos = (progn (goto-char (point-min)) (point))
+               then (progn (forward-line) (point))
+               while (< pos (point-max))
+               if (eq ?A (char-after pos))
+               do (setq a (tabulated-list-get-id))
+               if (eq ?B (char-after pos))
+               do (setq b (tabulated-list-get-id))
+               finally return (cons a b)))))
+
+(defun snapshot-timeline-show-diff-between (s1 s2)
+  "Show the diff between snapshots S1 and S2."
+  (diff (snapshot-file s1) (snapshot-file s2)))
+
+(defun snapshot-timeline-show-diff-A-B ()
+  "Show the diff between the snapshots marked as A and B.
+The user is informed of missing marks."
+  (interactive)
+  (destructuring-bind (a . b) (snapshot-timeline-get-A-and-B)
+    (if (or (null a) (null b))
+        (message "Please mark both A and B.")
+      (snapshot-timeline-show-diff-between
+       (snapshot-timeline-snapshot-by-id a)
+       (snapshot-timeline-snapshot-by-id b)))))
 
 (defun snapshot-timeline-show-snapshot-or-diff ()
   "Show the snapshot under the point or the diff, depending on the column.
@@ -675,6 +706,7 @@ the last snapshot, for example when the order is reversed."
     (define-key map (kbd "i")   'snapshot-timeline-toggle-interesting-only)
     (define-key map (kbd "a")   'snapshot-timeline-mark-as-A)
     (define-key map (kbd "b")   'snapshot-timeline-mark-as-B)
+    (define-key map (kbd "d")   'snapshot-timeline-show-diff-A-B)
     (define-key map (kbd "<")   'snapshot-timeline-goto-start)
     (define-key map (kbd ">")   'snapshot-timeline-goto-end)
     (define-key map (kbd "N")   'snapshot-timeline-goto-next-interesting-snapshot)
@@ -686,6 +718,7 @@ the last snapshot, for example when the order is reversed."
   "Snapshot Timeline"
   "Display a time line of snapshots of a file."
   :group 'snapshot-timemachine
+  ;; TODO revert-buffer
   (let ((time-width (length
                      (format-time-string
                       snapshot-timemachine-time-format '(0 0 0 0)))))
