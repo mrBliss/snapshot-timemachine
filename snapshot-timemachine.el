@@ -396,6 +396,37 @@ the time machine."
     ("q" . snapshot-timemachine-quit))
   :group 'snapshot-timemachine)
 
+
+;;; Launcher helper function and macro
+
+(defun snapshot-validate (file fn)
+  "Call FN with the snaphot directory and snapshots of FILE.
+FN must be a function expecting the snapshot directory as first
+and the snapshots as second argument.  Finds the snapshot
+directory with `snapshot-timemachine-find-snapshot-dir' and the
+snapshots with `snapshot-timemachine-file-snapshots'.  FN is only
+called when there is a snapshot directory and at least one
+snapshot, otherwise the user is notified of the respective
+problem."
+  (let ((snapshot-dir
+         (snapshot-timemachine-find-snapshot-dir default-directory)))
+    (if (null snapshot-dir)
+        (message "Snapshot folder not found")
+      (let ((snapshots (cl-sort
+                        (snapshot-timemachine-file-snapshots file snapshot-dir)
+                        #'< :key #'snapshot-id)))
+        (if (null snapshots)
+            (message "No snapshots found")
+          (funcall fn snapshot-dir snapshots))))))
+
+(defmacro with-snapshots (file args &rest body)
+  "Wrap a call to `snapshot-validate' for FILE passing a lambda with ARGS and BODY.
+ARGS should be a list of two arguments, the snapshot directory
+will be bound to the first argument, and the snapshots will be
+bound to the second argument."
+  (declare (indent 2))
+  `(snapshot-validate file (lambda (,@args) ,@body)))
+
 ;;; Timemachine launcher
 
 (defun snapshot-timemachine-create (file snapshots snapshot-dir &optional id)
@@ -579,37 +610,6 @@ FILE defaults to the file the current buffer is visiting."
   (let ((file (or file (buffer-file-name))))
     (with-snapshots file (snapshot-dir snapshots)
       (snapshot-timeline-create file snapshots snapshot-dir))))
-
-
-;;; Launcher helper function and macro
-
-(defun snapshot-validate (file fn)
-  "Call FN with the snaphot directory and snapshots of FILE.
-FN must be a function expecting the snapshot directory as first
-and the snapshots as second argument.  Finds the snapshot
-directory with `snapshot-timemachine-find-snapshot-dir' and the
-snapshots with `snapshot-timemachine-file-snapshots'.  FN is only
-called when there is a snapshot directory and at least one
-snapshot, otherwise the user is notified of the respective
-problem."
-  (let ((snapshot-dir
-         (snapshot-timemachine-find-snapshot-dir default-directory)))
-    (if (null snapshot-dir)
-        (message "Snapshot folder not found")
-      (let ((snapshots (cl-sort
-                        (snapshot-timemachine-file-snapshots file snapshot-dir)
-                        #'< :key #'snapshot-id)))
-        (if (null snapshots)
-            (message "No snapshots found")
-          (funcall fn snapshot-dir snapshots))))))
-
-(defmacro with-snapshots (file args &rest body)
-  "Wrap a call to `snapshot-validate' for FILE passing a lambda with ARGS and BODY.
-ARGS should be a list of two arguments, the snapshot directory
-will be bound to the first argument, and the snapshots will be
-bound to the second argument."
-  (declare (indent 2))
-  `(snapshot-validate file (lambda (,@args) ,@body)))
 
 
 (provide 'snapshot-timemachine)
