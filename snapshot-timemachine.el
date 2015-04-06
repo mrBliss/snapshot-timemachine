@@ -51,9 +51,9 @@ The default format is \"sat 14 mar 2015 10:35\".")
   path
   ;; The date of the snapshot, format: (HIGH LOW USEC PSEC)
   date
-  ;; Some extra information depending on the type of snapshots and the use
-  ;; site.
-  extra
+  ;; The number of lines added/removed compared to the previous snapshot,
+  ;; format: (ADDED . REMOVED). Can be nil when uninitialised.
+  diffstat
   )
 
 ;;; Zipper
@@ -516,10 +516,10 @@ number of plus and minus sign is relative to WIDTH."
 
 (defun snapshot-timeline-add-diffstats (snapshots)
   "Add a diffstat with the previous snapshot to each snapshot of SNAPSHOTS.
-The diffstat is stored as a cons (ADDED . REMOVED) in the `extra'
-field of the snapshot structs.  If the `extra' already contains a
-diffstat, it is not recalculated.  Modify the SNAPSHOTS in-place
-and return them."
+The diffstat is stored as a cons (ADDED . REMOVED) in the
+`diffstat' field of the snapshot structs.  If the `diffstat'
+already contains a diffstat, it is not recalculated.  Modify the
+SNAPSHOTS in-place and return them."
   (cl-labels ((diffstat (s1 s2)
                         (snapshot-timeline-diffstat
                          (snapshot-timemachine-path-in-snapshot
@@ -528,11 +528,11 @@ and return them."
                          (snapshot-timemachine-path-in-snapshot
                           snapshot-timemachine-original-file s2
                           snapshot-timemachine-snapshot-dir))))
-    (unless (cl-some (lambda (s) (consp (snapshot-extra s))) snapshots)
+    (unless (cl-some (lambda (s) (consp (snapshot-diffstat s))) snapshots)
       (cl-loop
        for s in snapshots and s-prev in (cons nil snapshots)
        for diffstat = (when s-prev (message "DIFFSTAT") (diffstat s-prev s))
-       do (setf (snapshot-extra s) diffstat)))
+       do (setf (snapshot-diffstat s) diffstat)))
     snapshots))
 
 (defun snapshot-timeline-interesting-diffstatp (diffstat)
@@ -549,7 +549,7 @@ with the previous snapshot.  If INTERESTING-ONLY is non-nil, only
 snapshots in which the file was changed are returned."
   (cl-loop
    for s in snapshots
-   for diffstat = (snapshot-extra s)
+   for diffstat = (snapshot-diffstat s)
    unless (and interesting-only
                (not (snapshot-timeline-interesting-diffstatp diffstat)))
    collect (list (snapshot-id s)
