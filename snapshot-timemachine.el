@@ -1,9 +1,9 @@
-;;; snapper-timemachine.el --- Step through Snapper's BTRFS snapshots of files
+;;; snapshot-timemachine.el --- Step through (Btrfs, ZFS, ...) snapshots of files
 
 ;; Copyright (C) 2015 by Thomas Winant
 
 ;; Author: Thomas Winant <dewinant@gmail.com>
-;; URL: https://github.com/mrBliss/snapper-timemachine
+;; URL: https://github.com/mrBliss/snapshot-timemachine
 ;; Version: 0.1
 ;; Package-Requires: ()
 ;; Created: Apr 4 2015
@@ -333,5 +333,5 @@ TODO"
 
 
 
-(provide 'snapper-timemachine)
-;;; snapper-timemachine.el ends here
+(provide 'snapshot-timemachine)
+;;; snapshot-timemachine.el ends here
