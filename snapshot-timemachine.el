@@ -333,7 +333,6 @@ The current snapshot is stored in
       (let ((z* (zipper-shift-to
                  snapshot-timemachine-buffer-snapshots
                  (lambda (s)
-                   (message "ID: %d" (snapshot-id s))
                    (= (snapshot-id s) choice)))))
         (when z*
           (setq snapshot-timemachine-buffer-snapshots z*)
