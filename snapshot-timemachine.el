@@ -43,6 +43,11 @@
   "The format to use when displaying a snapshot's time.
 The default format is \"sat 14 mar 2015 10:35\".")
 
+(defvar snapshot-timemachine-diff-switches "-u"
+  "The switches to pass to diff when viewing a diff between
+snapshots of a file.  See `diff-switches'.")
+
+
 ;;; Zipper
 
 ;; A zipper suited for tracking focus in a list.
@@ -616,7 +621,8 @@ for B."
 
 (defun snapshot-timeline-show-diff-between (s1 s2)
   "Show the diff between snapshots S1 and S2."
-  (diff (snapshot-file s1) (snapshot-file s2)))
+  (diff (snapshot-file s1) (snapshot-file s2)
+        snapshot-timemachine-diff-switches))
 
 (defun snapshot-timeline-show-diff-A-B ()
   "Show the diff between the snapshots marked as A and B.
