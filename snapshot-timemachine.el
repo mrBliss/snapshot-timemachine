@@ -38,13 +38,13 @@
 
 (require 'cl-lib)
 
-(defvar snapper-timemachine-time-format "%a %d %b %Y %R"
+(defvar snapshot-timemachine-time-format "%a %d %b %Y %R"
   "The format to use when displaying a snapshot's time.
 The default format is \"sat 14 mar 2015 10:35\".")
 
 
-;; A struct representing a BTRFS snapshot made by snapper.
-(cl-defstruct snapper-timemachine-snapshot
+;; A struct representing a snapshot.
+(cl-defstruct snapshot
   id path date)
 
 ;;; Zipper
@@ -146,19 +146,19 @@ when no element satisfies PREDICATE."
 
 ;;; Internal variables
 
-(defvar-local snapper-timemachine-snapshot-dir nil
+(defvar-local snapshot-timemachine-snapshot-dir nil
   "The snapshot directory associated with the buffer.  Is nil
   when there is none.")
 
-(defvar-local snapper-timemachine-buffer-snapshots nil
-  "A zipper of `snapper-timemachine-snapshot' structs representing
+(defvar-local snapshot-timemachine-buffer-snapshots nil
+  "A zipper of `snapshot' structs representing
   the snapshots of the current buffer's file.")
 
-(defvar-local snapper-timemachine-original-file nil
+(defvar-local snapshot-timemachine-original-file nil
   "Maintains the path to the original (most recent) file.")
 
 
-(defun snapper-timemachine-find-snapshot-dir (dir)
+(defun snapshot-timemachine-find-snapshot-dir (dir)
   "Find the directory containing the snapshots.
 Starts in DIR and looks for a directory named \".snapshots\"."
   (let ((file (expand-file-name ".snapshots" dir)))
@@ -167,28 +167,28 @@ Starts in DIR and looks for a directory named \".snapshots\"."
         file
       (let ((parent-dir (file-name-directory (directory-file-name dir))))
         (unless (equal "/" parent-dir)
-          (snapper-timemachine-find-snapshot-dir parent-dir))))))
+          (snapshot-timemachine-find-snapshot-dir parent-dir))))))
 
-(defun snapper-timemachine-find-snapshots (snapshot-dir)
+(defun snapshot-timemachine-find-snapshots (snapshot-dir)
   "Collect all snapshots in the given SNAPSHOT-DIR.
 For each valid snapshot directory, a
-`snapper-timemachine-snapshot' struct is created."
+`snapshot' struct is created."
   (cl-loop for file in (directory-files snapshot-dir t)
            for filename = (file-name-nondirectory file)
            when (string-match-p "[0-9]+" filename)
-           collect (make-snapper-timemachine-snapshot
+           collect (make-snapshot
                     :id (string-to-number filename)
                     :path (concat file "/snapshot/")
                     :date (nth 5 (file-attributes file)))))
 
-(defun snapper-timemachine-path-in-snapshot (file snapshot snapshot-dir)
+(defun snapshot-timemachine-path-in-snapshot (file snapshot snapshot-dir)
   "Return the absolute path of the given FILE in SNAPSHOT.
 FILE is either an absolute path or a relative path interpreted
 against `default-directory'.  SNAPSHOT-DIR is the directory
 containing the snapshots."
   (let* ((file* (expand-file-name file)) ;; "/home/thomas/.emacs.d/init.el"
          ;; "/home/.snapshots/182/snapshot/"
-         (snapshot-path (snapper-timemachine-snapshot-path snapshot))
+         (snapshot-path (snapshot-path snapshot))
          ;; "/home/"
          (snapshot-root (file-name-directory
                          (directory-file-name snapshot-dir)))
@@ -197,118 +197,118 @@ containing the snapshots."
     ;; "/home/.snapshots/182/snapshot/thomas/.emacs.d/init.el"
     (concat snapshot-path rel-path)))
 
-(defun snapper-timemachine-file-snapshots (file snapshot-dir)
+(defun snapshot-timemachine-file-snapshots (file snapshot-dir)
   "Return a list of all the snapshots of this FILE in SNAPSHOT-DIR.
 Snapshots in which FILE doesn't exist are discarded."
-  (cl-loop for snapshot in (snapper-timemachine-find-snapshots snapshot-dir)
-           for path-in-snapshot = (snapper-timemachine-path-in-snapshot
+  (cl-loop for snapshot in (snapshot-timemachine-find-snapshots snapshot-dir)
+           for path-in-snapshot = (snapshot-timemachine-path-in-snapshot
                                    file snapshot snapshot-dir)
            when (file-exists-p path-in-snapshot)
            collect snapshot))
 
-(defun snapper-timemachine-show-focused-snapshot ()
+(defun snapshot-timemachine-show-focused-snapshot ()
   "Display the currently focused snapshot in the buffer.
 The current snapshot is stored in
-`snapper-timemachine-buffer-snapshots'."
-  (let* ((snapshot (zipper-focus snapper-timemachine-buffer-snapshots))
+`snapshot-timemachine-buffer-snapshots'."
+  (let* ((snapshot (zipper-focus snapshot-timemachine-buffer-snapshots))
          (time (format-time-string
-                snapper-timemachine-time-format
-                (snapper-timemachine-snapshot-date snapshot))))
+                snapshot-timemachine-time-format
+                (snapshot-date snapshot))))
     (setq buffer-read-only nil)
     (insert-file-contents
-     (snapper-timemachine-path-in-snapshot
-      snapper-timemachine-original-file snapshot
-      snapper-timemachine-snapshot-dir)
+     (snapshot-timemachine-path-in-snapshot
+      snapshot-timemachine-original-file snapshot
+      snapshot-timemachine-snapshot-dir)
      nil nil nil t)
     (setq buffer-read-only t
-          buffer-file-name (snapper-timemachine-snapshot-path snapshot))
+          buffer-file-name (snapshot-path snapshot))
     (set-buffer-modified-p nil)
     (setq mode-line-buffer-identification
           (list (propertized-buffer-identification "%12b") "@"
                 (propertize
-                 (number-to-string (snapper-timemachine-snapshot-id snapshot))
+                 (number-to-string (snapshot-id snapshot))
                  'face 'bold)
                 " " time))
     (message "Snapshot %d from %s"
-             (snapper-timemachine-snapshot-id snapshot) time)))
+             (snapshot-id snapshot) time)))
 
-(defun snapper-timemachine-show-next-snapshot ()
+(defun snapshot-timemachine-show-next-snapshot ()
   "Show the next snapshot in time."
   (interactive)
-  (if (zipper-at-end snapper-timemachine-buffer-snapshots)
+  (if (zipper-at-end snapshot-timemachine-buffer-snapshots)
       (message "Last snapshot")
-    (setq snapper-timemachine-buffer-snapshots
-          (zipper-shift-next snapper-timemachine-buffer-snapshots))
-    (snapper-timemachine-show-focused-snapshot)))
+    (setq snapshot-timemachine-buffer-snapshots
+          (zipper-shift-next snapshot-timemachine-buffer-snapshots))
+    (snapshot-timemachine-show-focused-snapshot)))
 
-(defun snapper-timemachine-show-prev-snapshot ()
+(defun snapshot-timemachine-show-prev-snapshot ()
   "Show the previous snapshot in time."
   (interactive)
-  (if (zipper-at-start snapper-timemachine-buffer-snapshots)
+  (if (zipper-at-start snapshot-timemachine-buffer-snapshots)
       (message "First snapshot")
-    (setq snapper-timemachine-buffer-snapshots
-          (zipper-shift-prev snapper-timemachine-buffer-snapshots))
-    (snapper-timemachine-show-focused-snapshot)))
+    (setq snapshot-timemachine-buffer-snapshots
+          (zipper-shift-prev snapshot-timemachine-buffer-snapshots))
+    (snapshot-timemachine-show-focused-snapshot)))
 
-(defun snapper-timemachine-show-nth-snapshot ()
+(defun snapshot-timemachine-show-nth-snapshot ()
   "Choose which snapshot to show."
   (interactive)
   (let* ((candidates
           (mapcar (lambda (snapshot)
                     (cons
                      (format "Snapshot %d from %s"
-                             (snapper-timemachine-snapshot-id snapshot)
+                             (snapshot-id snapshot)
                              (format-time-string
-                              snapper-timemachine-time-format
-                              (snapper-timemachine-snapshot-date snapshot)))
-                     (snapper-timemachine-snapshot-id snapshot)))
-                  (zipper-to-list snapper-timemachine-buffer-snapshots)))
+                              snapshot-timemachine-time-format
+                              (snapshot-date snapshot)))
+                     (snapshot-id snapshot)))
+                  (zipper-to-list snapshot-timemachine-buffer-snapshots)))
          (choice (cdr (assoc
                        (completing-read
                         "Choose snapshot: " (copy-list candidates) nil t)
                        candidates))))
     (when choice
       (let ((z* (zipper-shift-to
-                 snapper-timemachine-buffer-snapshots
+                 snapshot-timemachine-buffer-snapshots
                  (lambda (s)
-                   (message "ID: %d" (snapper-timemachine-snapshot-id s))
-                   (= (snapper-timemachine-snapshot-id s) choice)))))
+                   (message "ID: %d" (snapshot-id s))
+                   (= (snapshot-id s) choice)))))
         (when z*
-          (setq snapper-timemachine-buffer-snapshots z*)
-          (snapper-timemachine-show-focused-snapshot))))))
+          (setq snapshot-timemachine-buffer-snapshots z*)
+          (snapshot-timemachine-show-focused-snapshot))))))
 
-(defun snapper-timemachine-quit ()
+(defun snapshot-timemachine-quit ()
   "Exit the timemachine."
   (interactive)
   (kill-buffer))
 
-(define-minor-mode snapper-timemachine-mode
+(define-minor-mode snapshot-timemachine-mode
   "TODO"
   :init-value nil
   :lighter " Timemachine"
   :keymap
-  '(("n" . snapper-timemachine-show-next-snapshot)
-    ("p" . snapper-timemachine-show-prev-snapshot)
-    ("j" . snapper-timemachine-show-nth-snapshot)
-    ("q" . snapper-timemachine-quit))
-  :group 'snapper-timemachine)
+  '(("n" . snapshot-timemachine-show-next-snapshot)
+    ("p" . snapshot-timemachine-show-prev-snapshot)
+    ("j" . snapshot-timemachine-show-nth-snapshot)
+    ("q" . snapshot-timemachine-quit))
+  :group 'snapshot-timemachine)
 
 
 ;;;###autoload
-(cl-defun snapper-timemachine ()
+(cl-defun snapshot-timemachine ()
   "Start the snapper timemachine for the current file.
 TODO"
   (interactive)
   (if (not (buffer-file-name))
       (message "The current buffer isn't visiting a file.")
     (let ((snapshot-dir
-           (snapper-timemachine-find-snapshot-dir default-directory)))
+           (snapshot-timemachine-find-snapshot-dir default-directory)))
       (if (null snapshot-dir)
           (message "Snapshot folder '%s' not found" snapshot-dirname)
         (let ((snapshots (cl-sort
-                          (snapper-timemachine-file-snapshots
+                          (snapshot-timemachine-file-snapshots
                            (buffer-file-name) snapshot-dir)
-                          #'< :key #'snapper-timemachine-snapshot-id)))
+                          #'< :key #'snapshot-id)))
           (if (null snapshots)
               (message "No snapshots found")
             (let* ((timemachine-buffer (format "snapshot:%s" (buffer-name)))
@@ -322,13 +322,13 @@ TODO"
               (with-current-buffer (get-buffer-create timemachine-buffer)
                 (switch-to-buffer timemachine-buffer)
                 (funcall mode)
-                (setq snapper-timemachine-original-file    file-name
-                      snapper-timemachine-buffer-snapshots snapshot-zipper
-                      snapper-timemachine-snapshot-dir     snapshot-dir)
-                (snapper-timemachine-show-focused-snapshot)
+                (setq snapshot-timemachine-original-file    file-name
+                      snapshot-timemachine-buffer-snapshots snapshot-zipper
+                      snapshot-timemachine-snapshot-dir     snapshot-dir)
+                (snapshot-timemachine-show-focused-snapshot)
                 (goto-char (point-min))
                 (forward-line (1- cur-line))
-                (snapper-timemachine-mode)))))))))
+                (snapshot-timemachine-mode)))))))))
 
 
 
