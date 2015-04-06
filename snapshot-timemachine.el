@@ -47,7 +47,6 @@ The default format is \"sat 14 mar 2015 10:35\".")
   "The switches to pass to diff when viewing a diff between
 snapshots of a file.  See `diff-switches'.")
 
-
 ;;; Zipper
 
 ;; A zipper suited for tracking focus in a list.
@@ -198,7 +197,6 @@ is greater than zero."
 See `snapshot-timemachine-interesting-diffstatp' to know what
 'interesting' means in this context."
   (snapshot-timemachine-interesting-diffstatp (snapshot-diffstat s)))
-
 
 ;;; Locating snapshots
 (defun snapshot-timemachine-find-snapshot-dir (dir)
@@ -406,7 +404,6 @@ the time machine."
     ("q" . snapshot-timemachine-quit))
   :group 'snapshot-timemachine)
 
-
 ;;; Launcher helper function and macro
 
 (defun snapshot-validate (file fn)
@@ -455,8 +452,6 @@ SNAPSHOTS in-place and return them."
        do (setf (snapshot-diffstat s) diffstat)))
     snapshots))
 
-
-
 (defun snapshot-timemachine-create (file snapshots snapshot-dir &optional id)
   "Create and return a snapshot time machine buffer.
 The snapshot timemachine will be of FILE using the SNAPSHOTS
@@ -500,7 +495,6 @@ FILE defaults to the file the current buffer is visiting."
   (let ((file (or file (buffer-file-name))))
     (with-snapshots file (snapshot-dir snapshots)
       (snapshot-timemachine-create file snapshots snapshot-dir))))
-
 
 ;;; Interactive time line functions and their helpers
 
