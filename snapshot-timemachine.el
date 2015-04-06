@@ -384,7 +384,7 @@ The current snapshot is stored in
         (snapshot-timemachine-show-focused-snapshot)))))
 
 (defun snapshot-timemachine-show-timeline ()
-  "Display the snapshot time line of the given file.
+  "Display the snapshot timeline of the given file.
 Leaves the point on the line of the snapshot that was active in
 the time machine."
   (interactive)
@@ -524,7 +524,7 @@ FILE defaults to the file the current buffer is visiting."
       (switch-to-buffer
        (snapshot-timemachine-create file snapshots snapshot-dir)))))
 
-;;; Interactive time line functions and their helpers
+;;; Interactive timeline functions and their helpers
 
 (defun snapshot-timeline-diffstat (file1 file2)
   "Calculate a diffstat between FILE1 and FILE2.
@@ -740,7 +740,7 @@ The user is informed of missing marks."
   (tabulated-list-put-tag "" t))
 
 (defun snapshot-timeline-unmark-all (&optional c)
-  "Remove all marks (equal to C when passed) from the time line.
+  "Remove all marks (equal to C when passed) from the timeline.
 When C is passed and non-nil, only marks matching C are removed,
 otherwise all marks are passed."
   (interactive)
@@ -753,22 +753,22 @@ otherwise all marks are passed."
                        (tabulated-list-put-tag "")))))
 
 (defun snapshot-timeline-goto-start ()
-  "Go to the first snapshot in the time line.
-The first snapshot in the time line is not always chronologically
+  "Go to the first snapshot in the timeline.
+The first snapshot in the timeline is not always chronologically
 the first snapshot, for example when the order is reversed."
   (interactive)
   (goto-char (point-min)))
 
 (defun snapshot-timeline-goto-end ()
-  "Go to the last snapshot in the time line.
-The last snapshot in the time line is not always chronologically
+  "Go to the last snapshot in the timeline.
+The last snapshot in the timeline is not always chronologically
 the last snapshot, for example when the order is reversed."
   (interactive)
   (goto-char (point-max))
   (forward-line -1))
 
 (defun snapshot-timeline-goto-next-interesting-snapshot ()
-  "Go to the next snapshot in the time line that differs from the current one."
+  "Go to the next snapshot in the timeline that differs from the current one."
   (interactive)
   (cl-loop for pos = (progn (forward-line) (point))
            while (< pos (point-max))
@@ -777,7 +777,7 @@ the last snapshot, for example when the order is reversed."
            until (and s (snapshot-interestingp s))))
 
 (defun snapshot-timeline-goto-prev-interesting-snapshot ()
-  "Go to the previous snapshot in the time line that differs from the current one."
+  "Go to the previous snapshot in the timeline that differs from the current one."
   (interactive)
   (cl-loop for pos = (progn (forward-line -1) (point))
            while (< (point-min) pos)
@@ -785,7 +785,7 @@ the last snapshot, for example when the order is reversed."
            for s = (snapshot-timeline-snapshot-by-id id)
            until (and s (snapshot-interestingp s))))
 
-;;; Minor-mode for time line
+;;; Minor-mode for timeline
 
 (defvar snapshot-timeline-mode-map
   (let ((map (make-sparse-keymap)))
@@ -810,7 +810,7 @@ the last snapshot, for example when the order is reversed."
 
 (define-derived-mode snapshot-timeline-mode tabulated-list-mode
   "Snapshot Timeline"
-  "Display a time line of snapshots of a file."
+  "Display a timeline of snapshots of a file."
   :group 'snapshot-timemachine
   ;; TODO revert-buffer
   (let ((time-width (length
@@ -824,11 +824,11 @@ the last snapshot, for example when the order is reversed."
             ("Diffstat" 40 nil)])
     (tabulated-list-init-header)))
 
-;;; Time line launcher
+;;; Timeline launcher
 
 (defun snapshot-timeline-create (file snapshots snapshot-dir)
-  "Create and return a snapshot time line buffer.
-The snapshot time line will be of FILE using the SNAPSHOTS located
+  "Create and return a snapshot timeline buffer.
+The snapshot timeline will be of FILE using the SNAPSHOTS located
 in SNAPSHOT-DIR."
   (let ((timeline-buffer
          (format "timeline:%s" (file-name-nondirectory file))))
@@ -847,7 +847,7 @@ in SNAPSHOT-DIR."
       (switch-to-buffer timeline-buffer))))
 
 (defun snapshot-timeline (&optional file)
-  "Display a time line of snapshots of FILE.
+  "Display a timeline of snapshots of FILE.
 FILE defaults to the file the current buffer is visiting."
   (interactive)
   (let ((file (or file (buffer-file-name))))
