@@ -28,6 +28,7 @@
 ;; * highlight diff in margins
 ;; * browse diffs?
 ;; * snapshot timeline?
+;; * relative timestamps
 ;; * dired?
 ;; * compatibility with ZFS: http://wiki.complete.org/ZFSAutoSnapshots
 
@@ -209,7 +210,10 @@ Snapshots in which FILE doesn't exist are discarded."
   "Display the currently focused snapshot in the buffer.
 The current snapshot is stored in
 `snapper-timemachine-buffer-snapshots'."
-  (let ((snapshot (zipper-focus snapper-timemachine-buffer-snapshots)))
+  (let* ((snapshot (zipper-focus snapper-timemachine-buffer-snapshots))
+         (time (format-time-string
+                snapper-timemachine-time-format
+                (snapper-timemachine-snapshot-date snapshot))))
     (setq buffer-read-only nil)
     (insert-file-contents
      (snapper-timemachine-path-in-snapshot
@@ -219,11 +223,14 @@ The current snapshot is stored in
     (setq buffer-read-only t
           buffer-file-name (snapper-timemachine-snapshot-path snapshot))
     (set-buffer-modified-p nil)
+    (setq mode-line-buffer-identification
+          (list (propertized-buffer-identification "%12b") "@"
+                (propertize
+                 (number-to-string (snapper-timemachine-snapshot-id snapshot))
+                 'face 'bold)
+                " " time))
     (message "Snapshot %d from %s"
-             (snapper-timemachine-snapshot-id snapshot)
-             (format-time-string
-              snapper-timemachine-time-format
-              (snapper-timemachine-snapshot-date snapshot)))))
+             (snapper-timemachine-snapshot-id snapshot) time)))
 
 (defun snapper-timemachine-show-next-snapshot ()
   "Show the next snapshot in time."
@@ -304,7 +311,7 @@ TODO"
                           #'< :key #'snapper-timemachine-snapshot-id)))
           (if (null snapshots)
               (message "No snapshots found")
-            (let* ((timemachine-buffer (format "timemachine:%s" (buffer-name)))
+            (let* ((timemachine-buffer (format "snapshot:%s" (buffer-name)))
                    (cur-line (line-number-at-pos))
                    (mode major-mode)
                    (file-name (buffer-file-name))
