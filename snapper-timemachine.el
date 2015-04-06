@@ -244,9 +244,31 @@ The current snapshot is stored in
     (snapper-timemachine-show-focused-snapshot)))
 
 (defun snapper-timemachine-show-nth-snapshot ()
-  "TODO"
+  "Choose which snapshot to show."
   (interactive)
-  ())
+  (let* ((candidates
+          (mapcar (lambda (snapshot)
+                    (cons
+                     (format "Snapshot %d from %s"
+                             (snapper-timemachine-snapshot-id snapshot)
+                             (format-time-string
+                              snapper-timemachine-time-format
+                              (snapper-timemachine-snapshot-date snapshot)))
+                     (snapper-timemachine-snapshot-id snapshot)))
+                  (zipper-to-list snapper-timemachine-buffer-snapshots)))
+         (choice (cdr (assoc
+                       (completing-read
+                        "Choose snapshot: " (copy-list candidates) nil t)
+                       candidates))))
+    (when choice
+      (let ((z* (zipper-shift-to
+                 snapper-timemachine-buffer-snapshots
+                 (lambda (s)
+                   (message "ID: %d" (snapper-timemachine-snapshot-id s))
+                   (= (snapper-timemachine-snapshot-id s) choice)))))
+        (when z*
+          (setq snapper-timemachine-buffer-snapshots z*)
+          (snapper-timemachine-show-focused-snapshot))))))
 
 (defun snapper-timemachine-quit ()
   "Exit the timemachine."
@@ -260,7 +282,7 @@ The current snapshot is stored in
   :keymap
   '(("n" . snapper-timemachine-show-next-snapshot)
     ("p" . snapper-timemachine-show-prev-snapshot)
-    ("g" . snapper-timemachine-show-nth-snapshot)
+    ("j" . snapper-timemachine-show-nth-snapshot)
     ("q" . snapper-timemachine-quit))
   :group 'snapper-timemachine)
 
