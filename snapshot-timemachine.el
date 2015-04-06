@@ -488,13 +488,15 @@ with the previous snapshot."
 (define-derived-mode snapshot-timeline-mode tabulated-list-mode
   "Snapshot Timeline"
   "Display a timeline of snapshots of a file."
-  (setq tabulated-list-format
-        ;; TODO make widths configurable
-        [("Snapshot" 8 t)
-         ("Time" 21 nil) ;; TODO make sortable
-         ("Diffstat" 40 nil)])
-  (tabulated-list-init-header))
-
+  (let ((time-width (length
+                     (format-time-string
+                      snapshot-timemachine-time-format '(0 0 0 0)))))
+    (setq tabulated-list-format
+          ;; TODO make widths configurable
+          `[("Snapshot" 8 t)
+            ("Time" ,time-width nil) ;; TODO make sortable
+            ("Diffstat" 40 nil)])
+    (tabulated-list-init-header)))
 
 ;;; Timeline launcher
 
