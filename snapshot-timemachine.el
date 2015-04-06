@@ -770,6 +770,7 @@ the last snapshot, for example when the order is reversed."
     (define-key map (kbd "v")   'snapshot-timeline-show-snapshot)
     (define-key map (kbd "<")   'snapshot-timeline-goto-start)
     (define-key map (kbd ">")   'snapshot-timeline-goto-end)
+    (define-key map (kbd "=")   'snapshot-timeline-show-diff-A-B)
     map)
   "Local keymap for `snapshot-timeline-mode' buffers.")
 
