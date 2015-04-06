@@ -381,36 +381,25 @@ The file is stored in `snapshot-timemachine-original-file'."
 (cl-defun snapshot-timemachine ()
   "Start the snapshot timemachine for the current file."
   (interactive)
-  (if (not (buffer-file-name))
-      (message "The current buffer isn't visiting a file.")
-    (let ((snapshot-dir
-           (snapshot-timemachine-find-snapshot-dir default-directory)))
-      (if (null snapshot-dir)
-          (message "Snapshot folder not found")
-        (let ((snapshots (cl-sort
-                          (snapshot-timemachine-file-snapshots
-                           (buffer-file-name) snapshot-dir)
-                          #'< :key #'snapshot-id)))
-          (if (null snapshots)
-              (message "No snapshots found")
-            (let* ((timemachine-buffer (format "snapshot:%s" (buffer-name)))
-                   (cur-line (line-number-at-pos))
-                   (mode major-mode)
-                   (file-name (buffer-file-name))
-                   ;; We already did a null check, so `zipper-from-list'
-                   ;; shouldn't fail.
-                   (snapshot-zipper (zipper-shift-end
-                                     (zipper-from-list snapshots))))
-              (with-current-buffer (get-buffer-create timemachine-buffer)
-                (switch-to-buffer timemachine-buffer)
-                (funcall mode)
-                (setq snapshot-timemachine-original-file    file-name
-                      snapshot-timemachine-buffer-snapshots snapshot-zipper
-                      snapshot-timemachine-snapshot-dir     snapshot-dir)
-                (snapshot-timemachine-show-focused-snapshot)
-                (goto-char (point-min))
-                (forward-line (1- cur-line))
-                (snapshot-timemachine-mode)))))))))
+  (with-snapshots (snapshot-dir snapshots)
+    (let* ((timemachine-buffer (format "snapshot:%s" (buffer-name)))
+           (cur-line (line-number-at-pos))
+           (mode major-mode)
+           (file-name (buffer-file-name))
+           ;; We already did a null check, so `zipper-from-list'
+           ;; shouldn't fail.
+           (snapshot-zipper (zipper-shift-end
+                             (zipper-from-list snapshots))))
+      (with-current-buffer (get-buffer-create timemachine-buffer)
+        (switch-to-buffer timemachine-buffer)
+        (funcall mode)
+        (setq snapshot-timemachine-original-file    file-name
+              snapshot-timemachine-buffer-snapshots snapshot-zipper
+              snapshot-timemachine-snapshot-dir     snapshot-dir)
+        (snapshot-timemachine-show-focused-snapshot)
+        (goto-char (point-min))
+        (forward-line (1- cur-line))
+        (snapshot-timemachine-mode)))))
 
 
 ;;; Interactive timeline functions and their helpers
@@ -485,10 +474,34 @@ with the previous snapshot."
 
 ;;; Timeline launcher
 
-;; TODO extract plumbing in common with snapshot-timemachine
 (defun snapshot-timeline ()
   "Display a timeline of snapshots of the current file."
   (interactive)
+  (with-snapshots (snapshot-dir snapshots)
+    (let ((timeline-buffer (format "timeline:%s" (buffer-name)))
+          (file-name (buffer-file-name)))
+      (with-current-buffer (get-buffer-create timeline-buffer)
+        (setq snapshot-timemachine-original-file    file-name
+              snapshot-timemachine-buffer-snapshots snapshots
+              snapshot-timemachine-snapshot-dir     snapshot-dir
+              tabulated-list-entries
+              (snapshot-timeline-format-snapshots snapshots))
+        (snapshot-timeline-mode)
+        (tabulated-list-print)
+        (switch-to-buffer timeline-buffer)))))
+
+
+;;; Launcher helper function and macro
+
+(defun snapshot-validate (fn)
+  "Call FN with the snaphot directory and snapshots of the given file.
+FN must be a function expecting the snapshot directory as first
+and the snapshots as second argument.  Finds the snapshot
+directory with `snapshot-timemachine-find-snapshot-dir' and the
+snapshots with `snapshot-timemachine-file-snapshots'.  FN is only
+called when there is a snapshot directory and at least one
+snapshot, otherwise the user is notified of the respective
+problem."
   (if (not (buffer-file-name))
       (message "The current buffer isn't visiting a file.")
     (let ((snapshot-dir
@@ -501,17 +514,15 @@ with the previous snapshot."
                           #'< :key #'snapshot-id)))
           (if (null snapshots)
               (message "No snapshots found")
-            (let ((timeline-buffer (format "timeline:%s" (buffer-name)))
-                  (file-name (buffer-file-name)))
-              (with-current-buffer (get-buffer-create timeline-buffer)
-                (setq snapshot-timemachine-original-file    file-name
-                      snapshot-timemachine-buffer-snapshots snapshots
-                      snapshot-timemachine-snapshot-dir     snapshot-dir
-                      tabulated-list-entries
-                      (snapshot-timeline-format-snapshots snapshots))
-                (snapshot-timeline-mode)
-                (tabulated-list-print)
-                (switch-to-buffer timeline-buffer)))))))))
+            (funcall fn snapshot-dir snapshots)))))))
+
+(defmacro with-snapshots (args &rest body)
+  "Wrap a call to `snapshot-validate' passing a lambda with ARGS and BODY.
+ARGS should be a list of two arguments, the snapshot directory
+will be bound to the first argument, and the snapshots will be
+bound to the second argument."
+  (declare (indent 1))
+  `(snapshot-validate (lambda (,@args) ,@body)))
 
 
 (provide 'snapshot-timemachine)
