@@ -577,6 +577,28 @@ shown (`snapshot-timeline-show-snapshot-or-diff')."
       (snapshot-timeline-show-diff)
     (snapshot-timeline-show-snapshot)))
 
+(defun snapshot-timeline-unmark (c)
+  "Remove all tags equal to character C from the time line."
+  (save-excursion
+    (cl-loop for pos = (progn (goto-char (point-min)) (point))
+             then (progn (forward-line) (point))
+             while (< pos (point-max))
+             if (eq c (char-after pos))
+             do (progn (goto-char pos)
+                       (tabulated-list-put-tag "")))))
+
+(defun snapshot-timeline-mark-as-A ()
+  "Mark a snapshot to use as file A of a diff."
+  (interactive)
+  (snapshot-timeline-unmark ?A)
+  (tabulated-list-put-tag "A"))
+
+(defun snapshot-timeline-mark-as-B ()
+  "Mark a snapshot to use as file B of a diff."
+  (interactive)
+  (snapshot-timeline-unmark ?B)
+  (tabulated-list-put-tag "B"))
+
 
 ;;; Minor-mode for timeline
 
@@ -586,6 +608,8 @@ shown (`snapshot-timeline-show-snapshot-or-diff')."
     (define-key map (kbd "RET") 'snapshot-timeline-show-snapshot-or-diff)
     (define-key map (kbd "v")   'snapshot-timeline-show-snapshot)
     (define-key map (kbd "i")   'snapshot-timeline-toggle-interesting-only)
+    (define-key map (kbd "a")   'snapshot-timeline-mark-as-A)
+    (define-key map (kbd "b")   'snapshot-timeline-mark-as-B)
     map)
   "Local keymap for `snapshot-timeline-mode' buffers.")
 
@@ -596,7 +620,8 @@ shown (`snapshot-timeline-show-snapshot-or-diff')."
   (let ((time-width (length
                      (format-time-string
                       snapshot-timemachine-time-format '(0 0 0 0)))))
-    (setq tabulated-list-format
+    (setq tabulated-list-padding 1
+          tabulated-list-format
           ;; TODO make widths configurable
           `[("Snapshot" 8 t)
             ("Time" ,time-width nil) ;; TODO make sortable
