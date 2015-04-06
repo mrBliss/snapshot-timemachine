@@ -592,6 +592,11 @@ snapshot."
   "TODO"
   (interactive)
   nil)
+(defun snapshot-timeline-snapshot-by-id (id)
+  "Return the snapshot in `snapshot-timemachine-buffer-snapshots' with ID.
+Return nil when no snapshot matches the ID."
+  (car (cl-member id snapshot-timemachine-buffer-snapshots
+                  :key #'snapshot-id)))
 
 (defun snapshot-timeline-show-snapshot-or-diff ()
   "Show the snapshot under the point or the diff, depending on the column.
@@ -648,8 +653,7 @@ the last snapshot, for example when the order is reversed."
   (cl-loop for pos = (progn (forward-line) (point))
            while (< pos (point-max))
            for id = (tabulated-list-get-id)
-           for s = (car (cl-member id snapshot-timemachine-buffer-snapshots
-                                   :key #'snapshot-id))
+           for s = (snapshot-timeline-snapshot-by-id id)
            until (and s (snapshot-interestingp s))))
 
 (defun snapshot-timeline-goto-prev-interesting-snapshot ()
@@ -658,8 +662,7 @@ the last snapshot, for example when the order is reversed."
   (cl-loop for pos = (progn (forward-line -1) (point))
            while (< (point-min) pos)
            for id = (tabulated-list-get-id)
-           for s = (car (cl-member id snapshot-timemachine-buffer-snapshots
-                                   :key #'snapshot-id))
+           for s = (snapshot-timeline-snapshot-by-id id)
            until (and s (snapshot-interestingp s))))
 
 ;;; Minor-mode for time line
