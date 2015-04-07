@@ -54,8 +54,22 @@ See `diff-switches'.")
 
 ;;; Zipper
 
-;; A zipper suited for tracking focus in a list.
-(cl-defstruct zipper focus before after)
+(cl-defstruct zipper
+  "A zipper suited for tracking focus in a list.
+Zippers must always contain at least one element, the focused element.
+
+Slots:
+
+`focus' The focused element.
+
+`before' A list of the elements coming before the focused
+         element, the first element of the list is the element
+         just before the focused element, the last element of
+         this list is the first element of the whole list
+         represented by the zipper.
+
+`after' A list of the elements coming after the focused element."
+  focus before after)
 
 (defun zipper-from-list (l)
   "Make a zipper from the given list L.
@@ -168,20 +182,27 @@ when no element satisfies PREDICATE."
 (defvar-local snapshot-timemachine-original-file nil
   "Maintains the path to the original (most recent) file.")
 
-;; A struct representing a snapshot.
+;;; Snapshot struct and helpers
 (cl-defstruct snapshot
-  ;; An ascending numerical identifier for lookup and sorting
-  id
-  ;; The name of the buffer to display
-  name
-  ;; The path to the snapshot directory, e.g. /home/.snapshots/2/snapshot/
-  path
-  ;; The date of the snapshot, format: (HIGH LOW USEC PSEC)
-  date
-  ;; The number of lines added/removed compared to the previous snapshot,
-  ;; format: (ADDED . REMOVED). Can be nil when uninitialised.
-  diffstat
-  )
+  "A struct representing a snapshot.
+
+Slots:
+
+`id' An ascending numerical identifier for internal lookups.
+
+`name' The name of the snapshot that will be displayed in the
+       timemachine and the timeline.
+
+`path' The path to the snapshot directory,
+       e.g. \"/home/.snapshots/2/snapshot/\".
+
+`date' The date/time at which the snapshot was made,
+       format: (HIGH LOW USEC PSEC)
+
+`diffstat' The number of lines added/removed compared to the
+           previous snapshot, format: (ADDED . REMOVED). Can be
+           nil when uninitialised."
+  id name path date diffstat)
 
 (defun snapshot-file (s)
   "Return the full filename of `snapshot-timemachine-original-file' in snapshot S.
