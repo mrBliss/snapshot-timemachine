@@ -825,6 +825,7 @@ The snapshot timeline will be of FILE using SNAPSHOTS."
       (hl-line-mode 1)
       (switch-to-buffer timeline-buffer))))
 
+;;;###autoload
 (defun snapshot-timeline (&optional file)
   "Display a timeline of snapshots of FILE.
 FILE defaults to the file the current buffer is visiting."
