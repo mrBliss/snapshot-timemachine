@@ -791,11 +791,20 @@ the last snapshot, for example when the order is reversed."
     map)
   "Local keymap for `snapshot-timeline-mode' buffers.")
 
+(defun snapshot-timeline-reload ()
+  "Reload the snapshots from disk and update the timeline.
+Intended for the `tabulated-list-revert-hook' of
+`snapshot-timeline-mode'."
+  (setq tabulated-list-entries
+        (snapshot-timeline-format-snapshots
+         (snapshot-timemachine-find-snapshots
+          snapshot-timemachine--file))))
+
 (define-derived-mode snapshot-timeline-mode tabulated-list-mode
   "Snapshot Timeline"
   "Display a timeline of snapshots of a file."
   :group 'snapshot-timemachine
-  ;; TODO revert-buffer
+  (add-hook 'tabulated-list-revert-hook #'snapshot-timeline-reload)
   (let ((time-width (length
                      (format-time-string
                       snapshot-timemachine-time-format '(0 0 0 0)))))
