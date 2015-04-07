@@ -389,8 +389,21 @@ The current snapshot is stored in
           (zipper-shift-end snapshot-timemachine--snapshots))
     (snapshot-timemachine-show-focused-snapshot)))
 
+(defun snapshot-timemachine-goto-snapshot-with-id (id)
+  "Show the snapshot with the given ID.
+Must be called from within a snapshot-timemachine buffer.  Throws
+an error when there is no such snapshot."
+  (let ((z (zipper-shift-to
+            snapshot-timemachine--snapshots
+            (lambda (s)
+              (= (snapshot-id s) id)))))
+    (if (null z)
+        (error "No snapshot with ID: %d" id)
+      (setq snapshot-timemachine--snapshots z)
+      (snapshot-timemachine-show-focused-snapshot))))
+
 (defun snapshot-timemachine-show-nth-snapshot ()
-  "Choose which snapshot to show."
+  "Interactively choose which snapshot to show."
   (interactive)
   (let* ((candidates
           (mapcar (lambda (snapshot)
@@ -402,18 +415,12 @@ The current snapshot is stored in
                               (snapshot-date snapshot)))
                      (snapshot-id snapshot)))
                   (zipper-to-list snapshot-timemachine--snapshots)))
-         (choice (cdr (assoc
+         (id (cdr (assoc
                        (completing-read
                         "Choose snapshot: " candidates nil t)
                        candidates))))
-    (when choice
-      (let ((z* (zipper-shift-to
-                 snapshot-timemachine--snapshots
-                 (lambda (s)
-                   (= (snapshot-id s) choice)))))
-        (when z*
-          (setq snapshot-timemachine--snapshots z*)
-          (snapshot-timemachine-show-focused-snapshot))))))
+    (when id
+      (snapshot-timemachine-show-snapshot-with-id id))))
 
 (defun snapshot-timemachine-show-next-interesting-snapshot ()
   "Show the next snapshot in time that differs from the current one."
@@ -441,6 +448,27 @@ The current snapshot is stored in
         (setq snapshot-timemachine--snapshots z*)
         (snapshot-timemachine-show-focused-snapshot)))))
 
+(defun snapshot-timemachine-get-timeline-buffer ()
+  "Get or create the corresponding timeline buffer.
+The current buffer must be a timemachine buffer.  If no existing
+buffer is found, a new one is created."
+  (let* ((name (format
+                "timeline:%s"
+                (file-name-nondirectory snapshot-timemachine--file)))
+         ;; A buffer with the correct name
+         (correct-name (get-buffer name))
+         (file snapshot-timemachine--file))
+    ;; That also has the correct absolute path to the original file.  If we
+    ;; didn't check this, we would get into trouble when the user opened
+    ;; timelines of more than one file with the same name. TODO test this
+    (if (and correct-name
+             (with-current-buffer correct-name
+               (equal file snapshot-timemachine--file)))
+        (switch-to-buffer correct-name)
+      (snapshot-timeline-create
+       snapshot-timemachine--file
+       (zipper-to-list snapshot-timemachine--snapshots)))))
+
 (defun snapshot-timemachine-show-timeline ()
   "Display the snapshot timeline of the given file.
 Leaves the point on the line of the snapshot that was active in
@@ -448,20 +476,9 @@ the time machine."
   (interactive)
   (let ((focused-snapshot-id
          (snapshot-id (zipper-focus snapshot-timemachine--snapshots))))
-    (with-current-buffer
-        ;; TODO add function that finds the matching timeline buffer (and vice
-        ;; versa)
-        (or (switch-to-buffer
-             (get-buffer (format "timeline:%s"
-                                 (file-name-nondirectory (buffer-file-name)))))
-            (snapshot-timeline-create
-             snapshot-timemachine--file
-             (zipper-to-list snapshot-timemachine--snapshots)))
+    (with-current-buffer (snapshot-timemachine-get-timeline-buffer)
       ;; Go to the snapshot that was active in the timemachine
-      (cl-loop for pos = (progn (goto-char (point-min)) (point-min))
-               then (progn (forward-line) (point))
-               while (< pos (point-max))
-               until (= focused-snapshot-id (tabulated-list-get-id pos))))))
+      (snapshot-timeline-goto-snapshot-with-id focused-snapshot-id))))
 
 (defun snapshot-timemachine-quit ()
   "Exit the timemachine."
@@ -489,28 +506,22 @@ the time machine."
 
 ;;; Timemachine launcher
 
-(defun snapshot-timemachine-create (file snapshots &optional id)
+(defun snapshot-timemachine-create (file snapshots)
   "Create and return a snapshot time machine buffer.
 The snapshot timemachine will be of FILE using SNAPSHOTS.
-SNAPSHOTS must be a non-empty list.  The snapshot with ID is
-displayed unless ID is not passed (or nil), in which case the
-last snapshot is displayed.  Return the created buffer."
-  (let* ((timemachine-buffer
-          (format "snapshot:%s" (file-name-nondirectory file)))
-         ;; We say it must be non-empty, so `zipper-from-list' shouldn't fail.
-         (z (zipper-from-list snapshots))
-         (shifted-z
-          (when id (zipper-shift-to
-                    z (lambda (s) (= (snapshot-id s) id)))))
-         ;; Shifting can still fail if ID is missing
-         (z* (or shifted-z (zipper-shift-end z))))
+SNAPSHOTS must be a non-empty list.  The last snapshot is
+displayed.  Return the created buffer."
+  (let ((timemachine-buffer
+         (format "snapshot:%s" (file-name-nondirectory file)))
+        ;; We say it must be non-empty, so `zipper-from-list' shouldn't fail.
+        (z (zipper-from-list snapshots)))
     (cl-destructuring-bind (cur-line mode)
         (with-current-buffer (find-file-noselect file t)
           (list (line-number-at-pos) major-mode))
       (with-current-buffer (get-buffer-create timemachine-buffer)
         (funcall mode)
         (setq snapshot-timemachine--file file
-              snapshot-timemachine--snapshots z*)
+              snapshot-timemachine--snapshots z)
         (snapshot-timemachine-show-focused-snapshot)
         (goto-char (point-min))
         (forward-line (1- cur-line))
@@ -602,18 +613,38 @@ shown (`snapshot-timeline-show-snapshot-or-diff')."
       (snapshot-timeline-show-diff)
     (snapshot-timeline-show-snapshot)))
 
+(defun snapshot-timeline-get-timemachine-buffer ()
+  "Get or create the corresponding timemachine buffer.
+The current buffer must be a time buffer.  If no existing
+buffer is found, a new one is created."
+  (let* ((name (format
+                "snapshot:%s"
+                (file-name-nondirectory snapshot-timemachine--file)))
+         ;; A buffer with the correct name
+         (correct-name (get-buffer name))
+         (file snapshot-timemachine--file))
+    ;; That also has the correct absolute path to the original file.  If we
+    ;; didn't check this, we would get into trouble when the user opened
+    ;; timelines of more than one file with the same name. TODO test this
+    (if (and correct-name
+             (with-current-buffer correct-name
+               (equal file snapshot-timemachine--file)))
+        (switch-to-buffer correct-name)
+      (snapshot-timemachine-create
+       snapshot-timemachine--file
+       snapshot-timemachine--snapshots))))
+
 (defun snapshot-timeline-show-snapshot ()
   "Show the snapshot under the point in the snapshot time machine.
 Open the time machine buffer in the same window."
   (interactive)
   (let ((id (tabulated-list-get-id)))
     (if (null id)
-        (message "Not on a snapshot"))
-    (switch-to-buffer
-     (snapshot-timemachine-create
-      snapshot-timemachine--file
-      snapshot-timemachine--snapshots
-      id))))
+        (message "Not on a snapshot")
+      (with-current-buffer
+          (switch-to-buffer
+           (snapshot-timeline-get-timemachine-buffer))
+        (snapshot-timemachine-goto-snapshot-with-id id)))))
 
 (defun snapshot-timeline-view-snapshot ()
   "Show the snapshot under the point in the snapshot time machine.
@@ -624,11 +655,10 @@ timeline window focused."
     (if (null id)
         (message "Not on a snapshot"))
     ;; TODO other window is focused
-    (switch-to-buffer-other-window
-     (snapshot-timemachine-create
-        snapshot-timemachine--file
-        snapshot-timemachine--snapshots
-        id) t)))
+    (with-current-buffer
+          (pop-to-buffer
+           (snapshot-timeline-get-timemachine-buffer) nil t)
+      (snapshot-timemachine-goto-snapshot-with-id id))))
 
 (defun snapshot-timeline-show-diff ()
   "Show the diff between this snapshot and the previous one.
@@ -736,6 +766,19 @@ otherwise all marks are passed."
              if (or (null c) (eq c (char-after pos)))
              do (progn (goto-char pos)
                        (tabulated-list-put-tag "")))))
+
+(defun snapshot-timeline-goto-snapshot-with-id (id)
+  "Go to the snapshot with the given ID.
+Must be called from within a snapshot-timeline buffer.  Throws
+an error when there is no such snapshot."
+  (cl-loop for pos = (progn (goto-char (point-min)) (point-min))
+           then (progn (forward-line) (point))
+           while (< pos (point-max))
+           until (= id (tabulated-list-get-id pos)))
+  (hl-line-highlight)
+  (when (= (point) (point-max))
+    (error "No snapshot with ID: %d" id)))
+
 
 (defun snapshot-timeline-goto-start ()
   "Go to the first snapshot in the timeline.
