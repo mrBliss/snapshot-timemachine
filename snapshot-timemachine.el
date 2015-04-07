@@ -24,6 +24,8 @@
 ;;; Commentary:
 
 ;; TODO
+;; * BUG: in timeline: interesting only is enabled, open a snapshot, go to an
+;;   uninteresting one, go back to timeline, result: point at end of file
 ;; * let (S-)n/p in timeline behave like in magit-log (maybe an option?)
 ;; * sync next/previous between timemachine and timeline
 ;; * highlight diff in margins
