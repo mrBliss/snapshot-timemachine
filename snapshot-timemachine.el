@@ -24,8 +24,6 @@
 ;;; Commentary:
 
 ;; TODO
-;; * BUG: in timeline: interesting only is enabled, open a snapshot, go to an
-;;   uninteresting one, go back to timeline, result: point at end of file
 ;; * let (S-)n/p in timeline behave like in magit-log (maybe an option?)
 ;; * sync next/previous between timemachine and timeline
 ;; * highlight diff in margins
@@ -585,21 +583,26 @@ snapshots in which the file was changed are returned."
                       (snapshot-timeline-format-diffstat diffstat 40)
                     "")))))
 
+(defun snapshot-timeline-all-displayedp ()
+  "Return t when all snapshots are displayed, not only 'interesting' ones.
+Otherwise return nil."
+  ;; When there are as many entries displayed as there are snapshots, we
+  ;; assume we're displaying all entries.  The condition can also be true when
+  ;; all snapshots are interesting, in which case all snapshots are displayed
+  ;; anyway.
+  (= (length tabulated-list-entries)
+     (length snapshot-timemachine--snapshots)))
+
 (defun snapshot-timeline-toggle-interesting-only ()
   "Toggle between showing all and only interesting snapshots.
 A snapshot is interesting when it differs from the previous
 snapshot."
   (interactive)
-  ;; When there are as many entries shown as there are snapshots, we assume
-  ;; we're displaying all entries, so switch to interesting-only, and vice
-  ;; versa.  The condition can also be true when all snapshots are
-  ;; interesting, in which case toggling doesn't make sense.
   (setq tabulated-list-entries
         (snapshot-timeline-format-snapshots
          snapshot-timemachine--snapshots
-         (= (length tabulated-list-entries)
-            (length snapshot-timemachine--snapshots))))
-        (tabulated-list-print t))
+         (snapshot-timeline-all-displayedp)))
+  (tabulated-list-print t))
 
 (defun snapshot-timeline-show-snapshot-or-diff ()
   "Show the snapshot under the point or the diff, depending on the column.
@@ -776,9 +779,13 @@ an error when there is no such snapshot."
            while (< pos (point-max))
            until (= id (tabulated-list-get-id pos)))
   (hl-line-highlight)
+  ;; We didn't find the snapshot
   (when (= (point) (point-max))
-    (error "No snapshot with ID: %d" id)))
-
+    (if (snapshot-timeline-all-displayedp)
+        (error "No snapshot with ID: %d" id)
+      ;; If only the interesting ones were shown, try again with all entries
+      (snapshot-timeline-toggle-interesting-only)
+      (snapshot-timeline-goto-snapshot-with-id id))))
 
 (defun snapshot-timeline-goto-start ()
   "Go to the first snapshot in the timeline.
