@@ -50,7 +50,7 @@ The default format is \"sat 14 mar 2015 10:35\".")
 See `diff-switches'.")
 
 (defvar snapshot-timemachine-include-current t
-  "Include the current version of the file when stepping through snapshots.")
+  "Include the current version of the file in the list of snapshots.")
 
 ;;; Zipper
 
@@ -171,10 +171,6 @@ when no element satisfies PREDICATE."
 
 ;;; Internal variables
 
-(defvar-local snapshot-timemachine-snapshot-dir nil
-  "The snapshot directory associated with the buffer.  Is nil
-  when there is none.")
-
 (defvar-local snapshot-timemachine-buffer-snapshots nil
   "A zipper of `snapshot' structs representing
   the snapshots of the current buffer's file.")
@@ -193,8 +189,8 @@ Slots:
 `name' The name of the snapshot that will be displayed in the
        timemachine and the timeline.
 
-`path' The path to the snapshot directory,
-       e.g. \"/home/.snapshots/2/snapshot/\".
+`file' The absolute path to the snapshotted file,
+       e.g. \"/home/.snapshots/2/snapshot/thomas/.emacs.d/init.el\".
 
 `date' The date/time at which the snapshot was made,
        format: (HIGH LOW USEC PSEC)
@@ -202,15 +198,7 @@ Slots:
 `diffstat' The number of lines added/removed compared to the
            previous snapshot, format: (ADDED . REMOVED). Can be
            nil when uninitialised."
-  id name path date diffstat)
-
-(defun snapshot-file (s)
-  "Return the full filename of `snapshot-timemachine-original-file' in snapshot S.
-Both `snapshot-timemachine-original-file' and
-`snapshot-timemachine-snapshot-dir' must be set."
-  (snapshot-timemachine-path-in-snapshot
-   snapshot-timemachine-original-file s
-   snapshot-timemachine-snapshot-dir))
+  id name file date diffstat)
 
 (defun snapshot-timemachine-interesting-diffstatp (diffstat)
   "Return t when the given DIFFSTAT (format: (ADDED . REMOVED)) is interesting.
@@ -227,67 +215,114 @@ See `snapshot-timemachine-interesting-diffstatp' to know what
   (snapshot-timemachine-interesting-diffstatp (snapshot-diffstat s)))
 
 ;;; Locating snapshots
-(defun snapshot-timemachine-find-snapshot-dir (dir)
-  "Find the directory containing the snapshots.
-Starts in DIR and looks for a directory named \".snapshots\"."
-  (let ((file (expand-file-name ".snapshots" dir)))
-    ;; We can't use `locate-dominating-file' for this because it stops at ~
-    (if (file-exists-p file)
-        file
+
+(defun snapshot-timemachine-find-dir (file &optional dir)
+  "Look for FILE by climbing up the directory tree starting from DIR.
+FILE can be a directory or a file.  DIR defaults to
+`default-directory'.  Return nil when the FILE is not found.
+Stops at \"/\".  Note: why not use `locate-dominating-file'?
+Because it stops at \"~\"."
+  (let* ((dir (or dir default-directory))
+         (file-in-dir (expand-file-name file dir)))
+    (if (file-exists-p file-in-dir)
+        file-in-dir
       (let ((parent-dir (file-name-directory (directory-file-name dir))))
         (unless (equal "/" parent-dir)
-          (snapshot-timemachine-find-snapshot-dir parent-dir))))))
+          (snapshot-timemachine-find-dir file parent-dir))))))
 
-(defun snapshot-timemachine-find-snapshots (snapshot-dir)
-  "Collect all snapshots in the given SNAPSHOT-DIR.
-For each valid snapshot directory, a
-`snapshot' struct is created."
-  (cl-loop for file in (directory-files snapshot-dir t)
-           for filename = (file-name-nondirectory file)
-           when (string-match-p "[0-9]+" filename)
-           collect (make-snapshot
-                    :id (string-to-number filename)
-                    :name filename
-                    :path (concat file "/snapshot/")
-                    :date (nth 5 (file-attributes file)))))
 
-(defun snapshot-timemachine-path-in-snapshot (file snapshot snapshot-dir)
-  "Return the absolute path of the given FILE in SNAPSHOT.
-FILE is either an absolute path or a relative path interpreted
-against `default-directory'.  SNAPSHOT-DIR is the directory
-containing the snapshots."
-  (let* ((file* (expand-file-name file)) ;; "/home/thomas/.emacs.d/init.el"
-         ;; "/home/.snapshots/182/snapshot/"
-         (snapshot-path (snapshot-path snapshot))
-         ;; "/home/"
-         (snapshot-root (file-name-directory
-                         (directory-file-name snapshot-dir)))
-         ;; "thomas/.emacs.d/init.el"
-         (rel-path (string-remove-prefix snapshot-root file*)))
-    ;; "/home/.snapshots/182/snapshot/thomas/.emacs.d/init.el"
-    (concat snapshot-path rel-path)))
+(defun snapshot-timemachine-snapper-snapshot-finder (file)
+  "Find snapshots of FILE made by Snapper.
+Looks for a ancestor directory containing a folder called
+\".snapshots\", which contains numbered snapshot folders.  Each
+snapshot folder has a subfolder called \"subfolder\" containing
+the actual snapshotted subtree.
 
-(defun snapshot-timemachine-file-snapshots (file snapshot-dir)
-  "Return a list of all the snapshots of this FILE in SNAPSHOT-DIR.
-Snapshots in which FILE doesn't exist are discarded.  Includes
-the current file when `snapshot-timemachine-include-current' is
-non-nil."
+For example, say FILE is
+\"/home/thomas/.emacs.d/init.el\"
+
+And the snapshots are stored in \"/home/.snapshots/\", the
+snapshots of the file will be:
+\"/home/.snapshots/2/thomas/.emacs.d/init.el\",
+\"/home/.snapshots/10/thomas/.emacs.d/init.el\" ...
+\"/home/.snapshots/100/thomas/.emacs.d/init.el\""
+  (let* ((file (expand-file-name file)) ;; "/home/thomas/.emacs.d/init.el"
+         (snapshot-dir
+          (snapshot-timemachine-find-dir
+           ".snapshots" (directory-file-name file)))) ;; "/home/.snapshots"
+    (if (null snapshot-dir)
+        (message "Could not find a .snapshots directory")
+      (let* ((common-prefix (file-name-directory snapshot-dir)) ;; "/home/"
+             ;; "thomas/.emacs.d/init.el"
+             (rel-path (string-remove-prefix common-prefix file)))
+        (cl-loop for sdir in (directory-files snapshot-dir t)
+                 for filename = (file-name-nondirectory sdir) ;; "2"
+                 for abs-path = (format "%s/snapshot/%s" sdir rel-path)
+                 ;; "/home/.snapshots/2/thomas/.emacs.d/init.el"
+                 when (and (string-match-p "[0-9]+" filename)
+                           (file-exists-p abs-path))
+                 collect (make-snapshot
+                          :id (string-to-number filename)
+                          :name filename
+                          :file abs-path
+                          :date (nth 5 (file-attributes abs-path))))))))
+
+(defvar snapshot-timemachine-snapshot-finder
+  #'snapshot-timemachine-snapper-snapshot-finder
+  "The function used to retrieve the snapshots for a given file.
+The function should accept an absolute path to a file and return
+a list of `snapshot' structs of existing snapshots of the file.
+The `diffstat' can still remain nil, and will be filled in later.")
+
+(defun snapshot-timemachine-diffstat (file1 file2)
+  "Calculate a diffstat between FILE1 and FILE2.
+The result is cons cell (ADDED . REMOVED) of the number of lines
+added and the number of lines removed going from FILE1 to FILE2.
+Return nil when one of the two files is missing (or nil)."
+  (when (and file1 file2 (file-exists-p file1) (file-exists-p file2))
+    (let ((diff-output
+           (shell-command-to-string
+            (format "diff %s %s %s \"%s\" \"%s\""
+                    "--old-line-format='-'"
+                    "--new-line-format='+'"
+                    "--unchanged-line-format=''"
+                    file1 file2))))
+      (cl-loop for c across diff-output
+               count (eq c ?+) into p
+               count (eq c ?-) into m
+               finally return (cons p m)))))
+
+(defun snapshot-timemachine-find-snapshots (file)
+  "Return a list of all the snapshots of FILE.
+Call the function stored in
+`snapshot-timemachine-snapshot-finder' for this purpose.  The
+snapshots will be sorted from oldest to newest.  Includes the
+current version of the file when
+`snapshot-timemachine-include-current' is non-nil.  The snapshot
+representing the current version will have `most-positive-fixnum'
+as `id'."
   (let ((snapshots
-         (cl-loop for snapshot in (snapshot-timemachine-find-snapshots
-                                   snapshot-dir)
-                  for path-in-snapshot = (snapshot-timemachine-path-in-snapshot
-                                          file snapshot snapshot-dir)
-                  when (file-exists-p path-in-snapshot)
-                  collect snapshot)))
-    (if snapshot-timemachine-include-current
-        (nconc snapshots
-               (list (make-snapshot
+         (cl-sort
+          (funcall snapshot-timemachine-snapshot-finder file)
+          #'time-less-p :key #'snapshot-date)))
+    ;; Append (mutate) the current file when the option is set
+    (when snapshot-timemachine-include-current
+      (let ((current (make-snapshot
                       :id most-positive-fixnum
                       :name "current"
-                      :path (file-name-directory
-                             (directory-file-name snapshot-dir))
+                      :file file
                       :date (nth 5 (file-attributes file)))))
-      snapshots)))
+        (nconc snapshots (list current))))
+    ;; Fill in the diffstats (mutate)
+    (cl-loop
+     for s in snapshots and s-prev in (cons nil snapshots)
+     for diffstat = (when s-prev (snapshot-timemachine-diffstat
+                                  (snapshot-file s-prev)
+                                  (snapshot-file s)))
+     do (setf (snapshot-diffstat s) diffstat))
+    ;; Return the (mutated) snapshots
+    snapshots))
+
 
 ;;; Interactive timemachine functions and their helpers
 
@@ -304,14 +339,14 @@ The current snapshot is stored in
     (insert-file-contents file nil nil nil t)
     (setq buffer-read-only t
           buffer-file-name file
-          default-directory (file-name-directory file))
-    (set-buffer-modified-p nil)
-    (setq mode-line-buffer-identification
+          default-directory (file-name-directory file)
+          mode-line-buffer-identification
           (list (propertized-buffer-identification "%12b") "@"
                 (propertize
                  (snapshot-name snapshot)
                  'face 'bold)
                 " " time))
+    (set-buffer-modified-p nil)
     (message "Snapshot %s from %s"
              (snapshot-name snapshot) time)))
 
@@ -418,8 +453,7 @@ the time machine."
                                  (file-name-nondirectory (buffer-file-name)))))
             (snapshot-timeline-create
              snapshot-timemachine-original-file
-             (zipper-to-list snapshot-timemachine-buffer-snapshots)
-             snapshot-timemachine-snapshot-dir))
+             (zipper-to-list snapshot-timemachine-buffer-snapshots)))
       ;; Go to the snapshot that was active in the timemachine
       (cl-loop for pos = (progn (goto-char (point-min)) (point-min))
                then (progn (forward-line) (point))
@@ -450,84 +484,30 @@ the time machine."
     ("q" . snapshot-timemachine-quit))
   :group 'snapshot-timemachine)
 
-;;; Launcher helper function and macro
-
-(defun snapshot-validate (file fn)
-  "Call FN with the snaphot directory and snapshots of FILE.
-FN must be a function expecting the snapshot directory as first
-and the snapshots as second argument.  Finds the snapshot
-directory with `snapshot-timemachine-find-snapshot-dir' and the
-snapshots with `snapshot-timemachine-file-snapshots'.  FN is only
-called when there is a snapshot directory and at least one
-snapshot, otherwise the user is notified of the respective
-problem."
-  (let ((snapshot-dir
-         (snapshot-timemachine-find-snapshot-dir default-directory)))
-    (if (null snapshot-dir)
-        (message "Snapshot folder not found")
-      (let ((snapshots (cl-sort
-                        (snapshot-timemachine-file-snapshots file snapshot-dir)
-                        #'< :key #'snapshot-id)))
-        (if (null snapshots)
-            (message "No snapshots found")
-          (funcall fn snapshot-dir snapshots))))))
-
-(defmacro with-snapshots (file args &rest body)
-  "Call `snapshot-validate' with FILE passing a lambda with ARGS and BODY.
-ARGS should be a list of two arguments, the snapshot directory
-will be bound to the first argument, and the snapshots will be
-bound to the second argument."
-  (declare (indent 2))
-  `(snapshot-validate file (lambda ,args ,@body)))
-
 ;;; Timemachine launcher
 
-(defun snapshot-timemachine-add-diffstats (snapshots)
-  "Add a diffstat with the previous snapshot to each snapshot of SNAPSHOTS.
-The diffstat is stored as a cons (ADDED . REMOVED) in the
-`diffstat' field of the snapshot structs.  If the `diffstat'
-already contains a diffstat, it is not recalculated.  Modify the
-SNAPSHOTS in-place and return them."
-  (cl-labels ((diffstat (s1 s2)
-                        (snapshot-timeline-diffstat
-                         (snapshot-file s1) (snapshot-file s2))))
-    (unless (cl-some (lambda (s) (consp (snapshot-diffstat s))) snapshots)
-      (cl-loop
-       for s in snapshots and s-prev in (cons nil snapshots)
-       for diffstat = (when s-prev (diffstat s-prev s))
-       do (setf (snapshot-diffstat s) diffstat)))
-    snapshots))
-
-(defun snapshot-timemachine-create (file snapshots snapshot-dir &optional id)
+(defun snapshot-timemachine-create (file snapshots &optional id)
   "Create and return a snapshot time machine buffer.
-The snapshot timemachine will be of FILE using the SNAPSHOTS
-located in SNAPSHOT-DIR.  SNAPSHOTS must be a non-empty list.
-The snapshot with ID is displayed unless ID is not passed (or
-nil), in which case the last snapshot is displayed.  Return the
-created buffer."
+The snapshot timemachine will be of FILE using SNAPSHOTS.
+SNAPSHOTS must be a non-empty list.  The snapshot with ID is
+displayed unless ID is not passed (or nil), in which case the
+last snapshot is displayed.  Return the created buffer."
   (let* ((timemachine-buffer
-          (format "snapshot:%s" (file-name-nondirectory file))))
+          (format "snapshot:%s" (file-name-nondirectory file)))
+         ;; We say it must be non-empty, so `zipper-from-list' shouldn't fail.
+         (z (zipper-from-list snapshots))
+         (shifted-z
+          (when id (zipper-shift-to
+                    z (lambda (s) (= (snapshot-id s) id)))))
+         ;; Shifting can still fail if ID is missing
+         (z* (or shifted-z (zipper-shift-end z))))
     (cl-destructuring-bind (cur-line mode)
         (with-current-buffer (find-file-noselect file t)
           (list (line-number-at-pos) major-mode))
       (with-current-buffer (get-buffer-create timemachine-buffer)
         (funcall mode)
         (setq snapshot-timemachine-original-file file
-              snapshot-timemachine-snapshot-dir  snapshot-dir
-              ;; `snapshot-timemachine-add-diffstats' needs the above two
-              ;; buffer-local variables.
-              snapshot-timemachine-buffer-snapshots
-              ;; We say is must be non-empty, so `zipper-from-list' shouldn't
-              ;; fail.
-              (let* ((z (zipper-from-list
-                         (snapshot-timemachine-add-diffstats
-                          snapshots)))
-                     (shifted-z
-                      (when id (zipper-shift-to
-                                z (lambda (s) (= (snapshot-id s) id)))))
-                     ;; Shifting can still fail if ID is missing
-                     (z* (or shifted-z (zipper-shift-end z))))
-                z*))
+              snapshot-timemachine-buffer-snapshots z*)
         (snapshot-timemachine-show-focused-snapshot)
         (goto-char (point-min))
         (forward-line (1- cur-line))
@@ -539,30 +519,14 @@ created buffer."
   "Start the snapshot timemachine for FILE.
 FILE defaults to the file the current buffer is visiting."
   (interactive)
-  (let ((file (or file (buffer-file-name))))
-    (with-snapshots file (snapshot-dir snapshots)
+  (let* ((file (or file (buffer-file-name)))
+         (snapshots (snapshot-timemachine-find-snapshots file)))
+    (if (null snapshots)
+        (message "No snapshots found")
       (switch-to-buffer
-       (snapshot-timemachine-create file snapshots snapshot-dir)))))
+       (snapshot-timemachine-create file snapshots)))))
 
 ;;; Interactive timeline functions and their helpers
-
-(defun snapshot-timeline-diffstat (file1 file2)
-  "Calculate a diffstat between FILE1 and FILE2.
-The result is cons cell (ADDED . REMOVED) of the number of lines
-added and the number of lines removed going from FILE1 to FILE2.
-Return nil when one of the two files is missing (or nil)."
-  (when (and file1 file2 (file-exists-p file1) (file-exists-p file2))
-    (let ((diff-output
-           (shell-command-to-string
-            (format "diff %s %s %s \"%s\" \"%s\""
-                    "--old-line-format='-'"
-                    "--new-line-format='+'"
-                    "--unchanged-line-format=''"
-                    file1 file2))))
-      (cl-loop for c across diff-output
-               count (eq c ?+) into p
-               count (eq c ?-) into m
-               finally return (cons p m)))))
 
 (defun snapshot-timeline-format-diffstat (diffstat &optional width)
   "Format DIFFSTAT as plus and minus signs with a maximum width of WIDTH.
@@ -646,7 +610,6 @@ Open the time machine buffer in the same window."
      (snapshot-timemachine-create
       snapshot-timemachine-original-file
       snapshot-timemachine-buffer-snapshots
-      snapshot-timemachine-snapshot-dir
       id))))
 
 (defun snapshot-timeline-view-snapshot ()
@@ -662,7 +625,6 @@ timeline window focused."
      (snapshot-timemachine-create
         snapshot-timemachine-original-file
         snapshot-timemachine-buffer-snapshots
-        snapshot-timemachine-snapshot-dir
         id) t)))
 
 (defun snapshot-timeline-show-diff ()
@@ -846,22 +808,18 @@ the last snapshot, for example when the order is reversed."
 
 ;;; Timeline launcher
 
-(defun snapshot-timeline-create (file snapshots snapshot-dir)
+(defun snapshot-timeline-create (file snapshots)
   "Create and return a snapshot timeline buffer.
-The snapshot timeline will be of FILE using the SNAPSHOTS located
-in SNAPSHOT-DIR."
+The snapshot timeline will be of FILE using SNAPSHOTS."
   (let ((timeline-buffer
          (format "timeline:%s" (file-name-nondirectory file))))
     (with-current-buffer (get-buffer-create timeline-buffer)
       (snapshot-timeline-mode)
       (setq snapshot-timemachine-original-file file
-            snapshot-timemachine-snapshot-dir  snapshot-dir
-            snapshot-timemachine-buffer-snapshots
-            (snapshot-timemachine-add-diffstats
-             snapshots)
+            snapshot-timemachine-buffer-snapshots snapshots
             tabulated-list-entries
             (snapshot-timeline-format-snapshots
-             snapshot-timemachine-buffer-snapshots))
+             snapshots))
       (tabulated-list-print)
       (hl-line-mode 1)
       (switch-to-buffer timeline-buffer))))
@@ -870,9 +828,11 @@ in SNAPSHOT-DIR."
   "Display a timeline of snapshots of FILE.
 FILE defaults to the file the current buffer is visiting."
   (interactive)
-  (let ((file (or file (buffer-file-name))))
-    (with-snapshots file (snapshot-dir snapshots)
-      (snapshot-timeline-create file snapshots snapshot-dir))))
+  (let* ((file (or file (buffer-file-name)))
+         (snapshots (snapshot-timemachine-find-snapshots file)))
+    (if (null snapshots)
+        (message "No snapshots found")
+      (snapshot-timeline-create file snapshots))))
 
 
 (provide 'snapshot-timemachine)
