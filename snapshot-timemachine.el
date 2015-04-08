@@ -450,10 +450,11 @@ an error when there is no such snapshot."
         (setq snapshot-timemachine--snapshots z*)
         (snapshot-timemachine-show-focused-snapshot)))))
 
-(defun snapshot-timemachine-get-timeline-buffer ()
-  "Get or create the corresponding timeline buffer.
-The current buffer must be a timemachine buffer.  If no existing
-buffer is found, a new one is created."
+(defun snapshot-timemachine-get-timeline-buffer (&optional create-missing)
+  "Get the corresponding timeline buffer.
+The current buffer must be a timemachine buffer.  Return nil if
+no existing buffer is found, unless CREATE-MISSING is non-nil, in
+which case a new one is created and returned."
   (let* ((name (format
                 "timeline:%s"
                 (file-name-nondirectory snapshot-timemachine--file)))
@@ -463,13 +464,17 @@ buffer is found, a new one is created."
     ;; That also has the correct absolute path to the original file.  If we
     ;; didn't check this, we would get into trouble when the user opened
     ;; timelines of more than one file with the same name. TODO test this
-    (if (and correct-name
+    (cond ((and correct-name
              (with-current-buffer correct-name
                (equal file snapshot-timemachine--file)))
-        (switch-to-buffer correct-name)
-      (snapshot-timeline-create
-       snapshot-timemachine--file
-       (zipper-to-list snapshot-timemachine--snapshots)))))
+           correct-name)
+          (create-missing
+           (snapshot-timeline-create
+            snapshot-timemachine--file
+            (zipper-to-list snapshot-timemachine--snapshots)))
+          ;; Better to be explicit: when no buffer was found and
+          ;; CREATE-MISSING was nil, return nil.
+          (t nil))))
 
 (defun snapshot-timemachine-show-timeline ()
   "Display the snapshot timeline of the given file.
@@ -478,7 +483,8 @@ the time machine."
   (interactive)
   (let ((focused-snapshot-id
          (snapshot-id (zipper-focus snapshot-timemachine--snapshots))))
-    (with-current-buffer (snapshot-timemachine-get-timeline-buffer)
+    (with-current-buffer
+        (switch-to-buffer (snapshot-timemachine-get-timeline-buffer t))
       ;; Go to the snapshot that was active in the timemachine
       (snapshot-timeline-goto-snapshot-with-id focused-snapshot-id))))
 
@@ -620,10 +626,11 @@ shown (`snapshot-timeline-show-snapshot-or-diff')."
       (snapshot-timeline-show-diff)
     (snapshot-timeline-show-snapshot)))
 
-(defun snapshot-timeline-get-timemachine-buffer ()
-  "Get or create the corresponding timemachine buffer.
-The current buffer must be a time buffer.  If no existing
-buffer is found, a new one is created."
+(defun snapshot-timeline-get-timemachine-buffer (&optional create-missing)
+  "Get the corresponding timemachine buffer.
+The current buffer must be a timeline buffer.  Return nil if no
+existing buffer is found, unless CREATE-MISSING is non-nil, in
+which case a new one is created and returned."
   (let* ((name (format
                 "snapshot:%s"
                 (file-name-nondirectory snapshot-timemachine--file)))
@@ -633,13 +640,16 @@ buffer is found, a new one is created."
     ;; That also has the correct absolute path to the original file.  If we
     ;; didn't check this, we would get into trouble when the user opened
     ;; timelines of more than one file with the same name. TODO test this
-    (if (and correct-name
-             (with-current-buffer correct-name
-               (equal file snapshot-timemachine--file)))
-        (switch-to-buffer correct-name)
-      (snapshot-timemachine-create
-       snapshot-timemachine--file
-       snapshot-timemachine--snapshots))))
+    (cond ((and correct-name
+                (with-current-buffer correct-name
+                  (equal file snapshot-timemachine--file)))
+           correct-name)
+          (create-missing (snapshot-timemachine-create
+                           snapshot-timemachine--file
+                           snapshot-timemachine--snapshots))
+          ;; Better to be explicit: when no buffer was found and CREATE was
+          ;; nil, return nil.
+          (t nil))))
 
 (defun snapshot-timeline-show-snapshot ()
   "Show the snapshot under the point in the snapshot time machine.
@@ -650,7 +660,7 @@ Open the time machine buffer in the same window."
         (message "Not on a snapshot")
       (with-current-buffer
           (switch-to-buffer
-           (snapshot-timeline-get-timemachine-buffer))
+           (snapshot-timeline-get-timemachine-buffer t))
         (snapshot-timemachine-goto-snapshot-with-id id)))))
 
 (defun snapshot-timeline-view-snapshot ()
