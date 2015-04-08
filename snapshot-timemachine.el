@@ -712,18 +712,16 @@ timeline window focused."
 
 (defun snapshot-timeline-show-diff ()
   "Show the diff between this snapshot and the previous one.
-When there is no previous snapshot or there are no changes, a
-message will tell the user so."
+When there is no previous snapshot, a message will tell the user
+so."
   (interactive)
   (let* ((id1 (save-excursion (forward-line -1) (tabulated-list-get-id)))
          (id2 (tabulated-list-get-id))
          (s1 (snapshot-timeline-snapshot-by-id id1))
          (s2 (snapshot-timeline-snapshot-by-id id2)))
-    (cond ((or (null s1) (null s2))
-           (message "No diff here"))
-          ((not (snapshot-interestingp s2))
-           (message "No changes between snapshots"))
-          (t (snapshot-timeline-show-diff-between s1 s2)))))
+    (if (or (null s1) (null s2) (= (snapshot-id s1) (snapshot-id s2)))
+        (message "No diff here")
+      (snapshot-timeline-show-diff-between s1 s2))))
 
 (defun snapshot-timeline-snapshot-by-id (id)
   "Return the snapshot in `snapshot-timemachine--snapshots' with ID.
