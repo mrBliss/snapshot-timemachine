@@ -32,6 +32,7 @@
 ;; * browse diffs?
 ;; * relative timestamps
 ;; * dired?
+;; * add option to revert or create a patch?
 ;; * compatibility with ZFS (http://wiki.complete.org/ZFSAutoSnapshots) and
 ;;   snapshot systems. Make it easy to adapt to your specific needs. Introduce
 ;;   snapshot-name.
