@@ -32,7 +32,7 @@
 ;; * browse diffs?
 ;; * relative timestamps
 ;; * dired?
-;; * add option to revert or create a patch?
+;; * add option to create a patch?
 ;; * compatibility with ZFS (http://wiki.complete.org/ZFSAutoSnapshots) and
 ;;   snapshot systems. Make it easy to adapt to your specific needs. Introduce
 ;;   snapshot-name.
@@ -522,6 +522,31 @@ the time machine."
       ;; Go to the snapshot that was active in the timemachine
       (snapshot-timeline-goto-snapshot-with-id focused-snapshot-id))))
 
+(defun snapshot-timemachine-restore-snapshot (snapshot)
+  "Restore the given SNAPSHOT.
+Replaces the current file with the snapshotted file's contents.
+Prompts the user for confirmation.  Uses the buffer-local
+variable `snapshot-timemachine--file' to find out the location of
+the current file.  Does nothing when SNAPSHOT is nil."
+  (when (and snapshot
+             (y-or-n-p
+              (format "Replace the contents of %s with snapshot %s? "
+                      (file-name-nondirectory snapshot-timemachine--file)
+                      (snapshot-name snapshot))))
+    (with-current-buffer (find-file snapshot-timemachine--file)
+      ;; We do want the undo
+      (erase-buffer)
+      (insert-file-contents (snapshot-file snapshot))
+      (set-buffer-modified-p t))))
+
+(defun snapshot-timemachine-restore ()
+  "Restore the focused snapshot.
+Replaces the current file with the snapshotted file's contents.
+Prompts the user for confirmation."
+  (interactive)
+  (snapshot-timemachine-restore-snapshot
+   (zipper-focus snapshot-timemachine--snapshots)))
+
 (defun snapshot-timemachine-quit ()
   "Exit the timemachine."
   (interactive)
@@ -543,7 +568,9 @@ the time machine."
     ("j" . snapshot-timemachine-show-nth-snapshot)
     ("t" . snapshot-timemachine-show-timeline)
     ("l" . snapshot-timemachine-show-timeline)
-    ("q" . snapshot-timemachine-quit))
+    ("q" . snapshot-timemachine-quit)
+    ("r" . snapshot-timemachine-restore)
+    ("s" . write-file))
   :group 'snapshot-timemachine)
 
 ;;; Timemachine launcher
@@ -914,6 +941,14 @@ the last snapshot, for example when the order is reversed."
            until (and s (snapshot-interestingp s)))
   (snapshot-timeline-sync-timemachine))
 
+(defun snapshot-timeline-restore ()
+  "Restore the focused snapshot.
+Replaces the current file with the snapshotted file's contents.
+Prompts the user for confirmation."
+  (interactive)
+  (snapshot-timemachine-restore-snapshot
+   (snapshot-timeline-snapshot-by-id (tabulated-list-get-id))))
+
 ;;; Minor-mode for timeline
 
 (defvar snapshot-timeline-mode-map
@@ -930,6 +965,7 @@ the last snapshot, for example when the order is reversed."
     (define-key map (kbd "p")   'snapshot-timeline-goto-prev-snapshot)
     (define-key map (kbd "N")   'snapshot-timeline-goto-next-interesting-snapshot)
     (define-key map (kbd "P")   'snapshot-timeline-goto-prev-interesting-snapshot)
+    (define-key map (kbd "r")   'snapshot-timeline-restore)
     (define-key map (kbd "u")   'snapshot-timeline-unmark)
     (define-key map (kbd "U")   'snapshot-timeline-unmark-all)
     (define-key map (kbd "v")   'snapshot-timeline-view-snapshot)
