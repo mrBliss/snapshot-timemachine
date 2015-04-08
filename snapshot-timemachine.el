@@ -792,18 +792,18 @@ The user is informed of missing marks."
   "Mark a snapshot to use as file A of a diff."
   (interactive)
   (snapshot-timeline-unmark-all ?A)
-  (tabulated-list-put-tag "A" t))
+  (tabulated-list-put-tag "A"))
 
 (defun snapshot-timeline-mark-as-B ()
   "Mark a snapshot to use as file B of a diff."
   (interactive)
   (snapshot-timeline-unmark-all ?B)
-  (tabulated-list-put-tag "B" t))
+  (tabulated-list-put-tag "B"))
 
 (defun snapshot-timeline-unmark ()
   "Remove the mark on the current line."
   (interactive)
-  (tabulated-list-put-tag "" t))
+  (tabulated-list-put-tag ""))
 
 (defun snapshot-timeline-unmark-all (&optional c)
   "Remove all marks (equal to C when passed) from the timeline.
