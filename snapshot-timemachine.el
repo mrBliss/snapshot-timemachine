@@ -747,7 +747,21 @@ for B."
 (defun snapshot-timeline-show-diff-between (s1 s2)
   "Show the diff between snapshots S1 and S2."
   (diff (snapshot-file s1) (snapshot-file s2)
-        snapshot-timemachine-diff-switches))
+        snapshot-timemachine-diff-switches)
+  (let* ((diff-buffer (get-buffer "*Diff*"))
+         (new-name (format "diff:%s" (file-name-nondirectory
+                                      snapshot-timemachine--file)))
+         (existing-buffer (get-buffer new-name)))
+    (when diff-buffer
+      (when existing-buffer
+        (kill-buffer existing-buffer))
+      (with-current-buffer diff-buffer
+        (rename-buffer new-name)
+        (setq mode-line-buffer-identification
+              (list (propertized-buffer-identification "%12b") "@"
+                    (propertize
+                     (format "%s..%s" (snapshot-name s1) (snapshot-name s2))
+                     'face 'bold)))))))
 
 (defun snapshot-timeline-validate-A-B (fn)
   "Check that A and B are marked, then call FN with the corresponding snapshots.
