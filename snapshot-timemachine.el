@@ -708,7 +708,7 @@ timeline window focused."
     ;; TODO other window is focused
     (with-current-buffer
           (pop-to-buffer
-           (snapshot-timeline-get-timemachine-buffer) nil t)
+           (snapshot-timeline-get-timemachine-buffer t) nil t)
       (snapshot-timemachine-goto-snapshot-with-id id))))
 
 (defun snapshot-timeline-show-diff ()
