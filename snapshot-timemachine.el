@@ -935,7 +935,8 @@ Intended for the `tabulated-list-revert-hook' of
   (setq tabulated-list-entries
         (snapshot-timeline-format-snapshots
          (snapshot-timemachine-find-snapshots
-          snapshot-timemachine--file))))
+          snapshot-timemachine--file)))
+  (snapshot-timeline-sync-timemachine))
 
 (define-derived-mode snapshot-timeline-mode tabulated-list-mode
   "Snapshot Timeline"
