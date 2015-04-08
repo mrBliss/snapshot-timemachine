@@ -563,7 +563,7 @@ displayed.  Return the created buffer."
       (with-current-buffer (get-buffer-create timemachine-buffer)
         (funcall mode)
         (setq snapshot-timemachine--file file
-              snapshot-timemachine--snapshots z)
+              snapshot-timemachine--snapshots (zipper-shift-end z))
         (snapshot-timemachine-show-focused-snapshot)
         (goto-char (point-min))
         (forward-line (1- cur-line))
