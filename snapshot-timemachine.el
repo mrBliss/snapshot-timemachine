@@ -147,24 +147,28 @@ Return Z unchanged when already at the first element in the list."
 
 (defun zipper-shift-forwards-to (z predicate)
   "Shift the zipper Z forwards to an element satisfying PREDICATE.
-Returns nil when no element satisfies PREDICATE."
-  (cl-loop for z* = (zipper-shift-next z) then (zipper-shift-next z*)
-           if (funcall predicate (zipper-focus z*))
-           return z*
-           until (zipper-at-end z*)))
+Returns nil when no element satisfies PREDICATE or when Z is not
+a zipper."
+  (when (zipper-p z)
+    (cl-loop for z* = z then (zipper-shift-next z*)
+             if (funcall predicate (zipper-focus z*))
+             return z*
+             until (zipper-at-end z*))))
 
 (defun zipper-shift-backwards-to (z predicate)
   "Shift the zipper Z backwards to an element satisfying PREDICATE.
-Returns nil when no element satisfies PREDICATE."
-  (cl-loop for z* = (zipper-shift-prev z) then (zipper-shift-prev z*)
-           if (funcall predicate (zipper-focus z*))
-           return z*
-           until (zipper-at-start z*)))
+Returns nil when no element satisfies PREDICATE or when Z is not
+a zipper."
+  (when (zipper-p z)
+    (cl-loop for z* = z then (zipper-shift-prev z*)
+             if (funcall predicate (zipper-focus z*))
+             return z*
+             until (zipper-at-start z*))))
 
 (defun zipper-shift-to (z predicate)
   "Shift the zipper Z to an element satisfying PREDICATE.
 First try the next elements, then the previous ones.  Returns nil
-when no element satisfies PREDICATE."
+when no element satisfies PREDICATE or when Z is not a zipper."
   (or
    (zipper-shift-forwards-to z predicate)
    (zipper-shift-backwards-to z predicate)))
@@ -426,7 +430,7 @@ an error when there is no such snapshot."
   (if (zipper-at-end snapshot-timemachine--snapshots)
       (message "Last snapshot")
     (let ((z* (zipper-shift-forwards-to
-               snapshot-timemachine--snapshots
+               (zipper-shift-next snapshot-timemachine--snapshots)
                #'snapshot-interestingp)))
       (if (null z*)
           (message "No next differing snapshot found.")
@@ -439,7 +443,7 @@ an error when there is no such snapshot."
   (if (zipper-at-start snapshot-timemachine--snapshots)
       (message "First snapshot")
     (let ((z* (zipper-shift-backwards-to
-               snapshot-timemachine--snapshots
+               (zipper-shift-prev snapshot-timemachine--snapshots)
                #'snapshot-interestingp)))
       (if (null z*)
           (message "No previous differing snapshot found.")
