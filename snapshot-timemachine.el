@@ -280,7 +280,7 @@ snapshots of the file will be:
                           :id (string-to-number filename)
                           :name filename
                           :file abs-path
-                          :date (nth 5 (file-attributes abs-path))))))))
+                          :date (nth 5 (file-attributes sdir))))))))
 
 (defvar snapshot-timemachine-snapshot-finder
   #'snapshot-timemachine-snapper-snapshot-finder
