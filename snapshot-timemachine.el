@@ -705,11 +705,10 @@ timeline window focused."
   (let ((id (tabulated-list-get-id)))
     (if (null id)
         (message "Not on a snapshot"))
-    ;; TODO other window is focused
-    (with-current-buffer
-          (pop-to-buffer
-           (snapshot-timeline-get-timemachine-buffer t) nil t)
-      (snapshot-timemachine-goto-snapshot-with-id id))))
+    (let ((buf (snapshot-timeline-get-timemachine-buffer t)))
+      (with-current-buffer buf
+        (snapshot-timemachine-goto-snapshot-with-id id))
+      (display-buffer buf))))
 
 (defun snapshot-timeline-show-diff ()
   "Show the diff between this snapshot and the previous one.
