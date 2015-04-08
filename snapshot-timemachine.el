@@ -24,8 +24,10 @@
 ;;; Commentary:
 
 ;; TODO
-;; * let (S-)n/p in timeline behave like in magit-log (maybe an option?)
-;; * sync next/previous between timemachine and timeline
+;; * BUG: when the timeline is visible at the same time as the timemachine and
+;;   the timemachine snapshot changes, the cursor in the timeline doesn't
+;;   move, but the correct line is highlighted.
+;; * sync diffs with timeline/timemachine as well
 ;; * highlight diff in margins
 ;; * browse diffs?
 ;; * relative timestamps
@@ -51,6 +53,13 @@ See `diff-switches'.")
 
 (defvar snapshot-timemachine-include-current t
   "Include the current version of the file in the list of snapshots.")
+
+(defvar snapshot-timemachine-sync-with-timeline t
+  "Keep the timemachine in sync with the timeline.
+When going to a snapshot in the timeline, also go to it in the
+timemachine and vice versa.  If, for some reason, loading a
+snapshot takes a while (e.g. remote storage), setting this to nil
+will make moving around in the timeline more responsive.")
 
 ;;; Zipper
 
@@ -355,6 +364,21 @@ The current snapshot is stored in
     (message "Snapshot %s from %s"
              (snapshot-name snapshot) time)))
 
+(defun snapshot-timemachine-sync-timeline ()
+  "Focus the same snapshot in the timeline.
+Only acts when `snapshot-timemachine-sync-with-timeline' is
+non-nil, in which case the same snapshot is focused in the
+corresponding timeline buffer as in the current timemachine
+buffer.  Doesn't try to create a timeline buffer if there is
+none."
+  (when snapshot-timemachine-sync-with-timeline
+    (let ((id (snapshot-id
+               (zipper-focus snapshot-timemachine--snapshots)))
+          (timeline (snapshot-timemachine-get-timeline-buffer)))
+      (when timeline
+        (with-current-buffer timeline
+          (snapshot-timeline-goto-snapshot-with-id id))))))
+
 (defun snapshot-timemachine-show-next-snapshot ()
   "Show the next snapshot in time."
   (interactive)
@@ -362,7 +386,8 @@ The current snapshot is stored in
       (message "Last snapshot")
     (setq snapshot-timemachine--snapshots
           (zipper-shift-next snapshot-timemachine--snapshots))
-    (snapshot-timemachine-show-focused-snapshot)))
+    (snapshot-timemachine-show-focused-snapshot)
+    (snapshot-timemachine-sync-timeline)))
 
 (defun snapshot-timemachine-show-prev-snapshot ()
   "Show the previous snapshot in time."
@@ -371,7 +396,8 @@ The current snapshot is stored in
       (message "First snapshot")
     (setq snapshot-timemachine--snapshots
           (zipper-shift-prev snapshot-timemachine--snapshots))
-    (snapshot-timemachine-show-focused-snapshot)))
+    (snapshot-timemachine-show-focused-snapshot)
+    (snapshot-timemachine-sync-timeline)))
 
 (defun snapshot-timemachine-show-first-snapshot ()
   "Show the first snapshot in time."
@@ -380,7 +406,8 @@ The current snapshot is stored in
       (message "Already at first snapshot")
     (setq snapshot-timemachine--snapshots
           (zipper-shift-start snapshot-timemachine--snapshots))
-    (snapshot-timemachine-show-focused-snapshot)))
+    (snapshot-timemachine-show-focused-snapshot)
+    (snapshot-timemachine-sync-timeline)))
 
 (defun snapshot-timemachine-show-last-snapshot ()
   "Show the last snapshot in time."
@@ -389,20 +416,24 @@ The current snapshot is stored in
       (message "Already at last snapshot")
     (setq snapshot-timemachine--snapshots
           (zipper-shift-end snapshot-timemachine--snapshots))
-    (snapshot-timemachine-show-focused-snapshot)))
+    (snapshot-timemachine-show-focused-snapshot)
+    (snapshot-timemachine-sync-timeline)))
 
 (defun snapshot-timemachine-goto-snapshot-with-id (id)
   "Show the snapshot with the given ID.
 Must be called from within a snapshot-timemachine buffer.  Throws
 an error when there is no such snapshot."
-  (let ((z (zipper-shift-to
-            snapshot-timemachine--snapshots
-            (lambda (s)
-              (= (snapshot-id s) id)))))
-    (if (null z)
-        (error "No snapshot with ID: %d" id)
-      (setq snapshot-timemachine--snapshots z)
-      (snapshot-timemachine-show-focused-snapshot))))
+  (unless (= id (snapshot-id
+                 (zipper-focus snapshot-timemachine--snapshots)))
+    (let ((z (zipper-shift-to
+              snapshot-timemachine--snapshots
+              (lambda (s)
+                (= (snapshot-id s) id)))))
+      (if (null z)
+          (error "No snapshot with ID: %d" id)
+        (setq snapshot-timemachine--snapshots z)
+        (snapshot-timemachine-show-focused-snapshot)
+        (snapshot-timemachine-sync-timeline)))))
 
 (defun snapshot-timemachine-show-nth-snapshot ()
   "Interactively choose which snapshot to show."
@@ -435,7 +466,8 @@ an error when there is no such snapshot."
       (if (null z*)
           (message "No next differing snapshot found.")
         (setq snapshot-timemachine--snapshots z*)
-        (snapshot-timemachine-show-focused-snapshot)))))
+        (snapshot-timemachine-show-focused-snapshot)
+        (snapshot-timemachine-sync-timeline)))))
 
 (defun snapshot-timemachine-show-prev-interesting-snapshot ()
   "Show the previous snapshot in time that differs from the current one."
@@ -448,7 +480,8 @@ an error when there is no such snapshot."
       (if (null z*)
           (message "No previous differing snapshot found.")
         (setq snapshot-timemachine--snapshots z*)
-        (snapshot-timemachine-show-focused-snapshot)))))
+        (snapshot-timemachine-show-focused-snapshot)
+        (snapshot-timemachine-sync-timeline)))))
 
 (defun snapshot-timemachine-get-timeline-buffer (&optional create-missing)
   "Get the corresponding timeline buffer.
@@ -784,14 +817,30 @@ otherwise all marks are passed."
              do (progn (goto-char pos)
                        (tabulated-list-put-tag "")))))
 
+(defun snapshot-timeline-sync-timemachine ()
+  "Show the same snapshot in the timemachine.
+Only acts when `snapshot-timemachine-sync-with-timeline' is
+non-nil, in which case the same snapshot is shown in the
+corresponding timemachine buffer as in the current timeline
+buffer.  Doesn't try to create a timemachine buffer if there is
+none."
+  (when snapshot-timemachine-sync-with-timeline
+    (let ((id (tabulated-list-get-id))
+          (timemachine (snapshot-timeline-get-timemachine-buffer)))
+      (when timemachine
+        (with-current-buffer timemachine
+          (snapshot-timemachine-goto-snapshot-with-id id))))))
+
 (defun snapshot-timeline-goto-snapshot-with-id (id)
   "Go to the snapshot with the given ID.
 Must be called from within a snapshot-timeline buffer.  Throws
 an error when there is no such snapshot."
-  (cl-loop for pos = (progn (goto-char (point-min)) (point-min))
-           then (progn (forward-line) (point))
-           while (< pos (point-max))
-           until (= id (tabulated-list-get-id pos)))
+  ;; No need to move when we're on the right snapshot
+  (unless (= id (tabulated-list-get-id))
+    (cl-loop for pos = (progn (goto-char (point-min)) (point-min))
+             then (progn (forward-line) (point))
+             while (< pos (point-max))
+             until (= id (tabulated-list-get-id pos))))
   (hl-line-highlight)
   ;; We didn't find the snapshot
   (when (= (point) (point-max))
@@ -806,7 +855,8 @@ an error when there is no such snapshot."
 The first snapshot in the timeline is not always chronologically
 the first snapshot, for example when the order is reversed."
   (interactive)
-  (goto-char (point-min)))
+  (goto-char (point-min))
+  (snapshot-timeline-sync-timemachine))
 
 (defun snapshot-timeline-goto-end ()
   "Go to the last snapshot in the timeline.
@@ -814,7 +864,23 @@ The last snapshot in the timeline is not always chronologically
 the last snapshot, for example when the order is reversed."
   (interactive)
   (goto-char (point-max))
-  (forward-line -1))
+  (forward-line -1)
+  (snapshot-timeline-sync-timemachine))
+
+(defun snapshot-timeline-goto-next-snapshot ()
+  "Go to the next snapshot in the timeline."
+  (interactive)
+  (forward-line)
+  ;; Don't go beyond the timeline list
+  (if (= (point) (point-max))
+      (forward-line -1)
+    (snapshot-timeline-sync-timemachine)))
+
+(defun snapshot-timeline-goto-prev-snapshot ()
+  "Go to the previous snapshot in the timeline."
+  (interactive)
+  (forward-line -1)
+  (snapshot-timeline-sync-timemachine))
 
 (defun snapshot-timeline-goto-next-interesting-snapshot ()
   "Go to the next snapshot in the timeline that differs from the current one."
@@ -823,7 +889,8 @@ the last snapshot, for example when the order is reversed."
            while (< pos (point-max))
            for id = (tabulated-list-get-id)
            for s = (snapshot-timeline-snapshot-by-id id)
-           until (and s (snapshot-interestingp s))))
+           until (and s (snapshot-interestingp s)))
+  (snapshot-timeline-sync-timemachine))
 
 (defun snapshot-timeline-goto-prev-interesting-snapshot ()
   "Go to the previous snapshot in the timeline that differs from the current one."
@@ -832,7 +899,8 @@ the last snapshot, for example when the order is reversed."
            while (< (point-min) pos)
            for id = (tabulated-list-get-id)
            for s = (snapshot-timeline-snapshot-by-id id)
-           until (and s (snapshot-interestingp s))))
+           until (and s (snapshot-interestingp s)))
+  (snapshot-timeline-sync-timemachine))
 
 ;;; Minor-mode for timeline
 
@@ -846,6 +914,8 @@ the last snapshot, for example when the order is reversed."
     (define-key map (kbd "e")   'snapshot-timeline-ediff-A-B)
     (define-key map (kbd "i")   'snapshot-timeline-toggle-interesting-only)
     (define-key map (kbd "m")   'snapshot-timeline-emerge-A-B)
+    (define-key map (kbd "n")   'snapshot-timeline-goto-next-snapshot)
+    (define-key map (kbd "p")   'snapshot-timeline-goto-prev-snapshot)
     (define-key map (kbd "N")   'snapshot-timeline-goto-next-interesting-snapshot)
     (define-key map (kbd "P")   'snapshot-timeline-goto-prev-interesting-snapshot)
     (define-key map (kbd "u")   'snapshot-timeline-unmark)
