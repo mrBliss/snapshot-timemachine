@@ -50,7 +50,7 @@ The default format is \"sat 14 mar 2015 10:35\".")
 
 (defvar snapshot-timemachine-diff-switches "-u"
   "The switches to pass to diff when comparing snapshots of a file.
-See `diff-switches'.")
+See variable `diff-switches'.")
 
 (defvar snapshot-timemachine-include-current t
   "Include the current version of the file in the list of snapshots.")
