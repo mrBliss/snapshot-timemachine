@@ -955,6 +955,7 @@ Prompts the user for confirmation."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map tabulated-list-mode-map)
     (define-key map (kbd "RET") 'snapshot-timeline-show-snapshot-or-diff)
+    (define-key map (kbd "SPC") 'snapshot-timeline-view-snapshot)
     (define-key map (kbd "a")   'snapshot-timeline-mark-as-A)
     (define-key map (kbd "b")   'snapshot-timeline-mark-as-B)
     (define-key map (kbd "d")   'snapshot-timeline-show-diff-A-B)
