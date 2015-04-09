@@ -27,16 +27,11 @@
 ;; * BUG: when the timeline is visible at the same time as the timemachine and
 ;;   the timemachine snapshot changes, the cursor in the timeline doesn't
 ;;   move, but the correct line is highlighted.
-;; * sync diffs with timeline/timemachine as well
-;; * highlight diff in margins
-;; * browse diffs?
+;; * sync diffs with timeline/timemachine as well?
 ;; * relative timestamps
 ;; * dired?
-;; * add option to create a patch?
 ;; * compatibility with ZFS (http://wiki.complete.org/ZFSAutoSnapshots) and
-;;   snapshot systems. Make it easy to adapt to your specific needs. Introduce
-;;   snapshot-name.
-
+;;   other common snapshot systems.
 
 
 ;;; Code:
