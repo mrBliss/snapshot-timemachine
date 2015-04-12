@@ -36,8 +36,9 @@
 
 ;;; Code:
 
-(require 'cl-lib)
-(require 'subr-x)
+(require 'cl-lib)    ;; for cl-*
+(require 'subr-x)    ;; for string-remove-prefix
+(require 'diff-mode) ;; for the diff-{added,removed} faces
 
 (defvar snapshot-timemachine-time-format "%a %d %b %Y %R"
   "The format to use when displaying a snapshot's time.
