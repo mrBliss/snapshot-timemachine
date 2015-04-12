@@ -189,6 +189,7 @@ In `snapper-timeline' buffers it will be a list.")
   "Maintains the path to the original (most recent) file.")
 
 ;;; Snapshot struct and helpers
+
 (cl-defstruct snapshot
   "A struct representing a snapshot.
 
@@ -239,7 +240,6 @@ Because it stops at \"~\"."
       (let ((parent-dir (file-name-directory (directory-file-name dir))))
         (unless (equal "/" parent-dir)
           (snapshot-timemachine-find-dir file parent-dir))))))
-
 
 (defun snapshot-timemachine-snapper-snapshot-finder (file)
   "Find snapshots of FILE made by Snapper.
@@ -332,7 +332,6 @@ as `id'."
      do (setf (snapshot-diffstat s) diffstat))
     ;; Return the (mutated) snapshots
     snapshots))
-
 
 ;;; Interactive timemachine functions and their helpers
 
@@ -625,7 +624,6 @@ number of plus and minus sign is relative to WIDTH."
               (propertize (make-string minuses ?-)
                           'face 'diff-removed)))))
 
-;; TODO include current version of file
 (defun snapshot-timeline-format-snapshots (snapshots &optional interesting-only)
   "Format SNAPSHOTS to be used as `tabulated-list-entries'.
 An entry consists of the snapshot's name, its date and a diffstat
