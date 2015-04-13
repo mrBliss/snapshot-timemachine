@@ -926,8 +926,7 @@ the last snapshot, for example when the order is reversed."
   (snapshot-timeline-sync-timemachine))
 
 (defun snapshot-timeline-goto-next-interesting-snapshot ()
-  "Go to the next snapshot in the timeline that differs from the
-current one."
+  "Go to the next snapshot that differs from the current."
   (interactive)
   (cl-loop for pos = (progn (forward-line) (point))
            while (< pos (point-max))
@@ -937,8 +936,7 @@ current one."
   (snapshot-timeline-sync-timemachine))
 
 (defun snapshot-timeline-goto-prev-interesting-snapshot ()
-  "Go to the previous snapshot in the timeline that differs from
-the current one."
+  "Go to the previous snapshot that differs from the current."
   (interactive)
   (cl-loop for pos = (progn (forward-line -1) (point))
            while (< (point-min) pos)
