@@ -449,7 +449,7 @@ an error when there is no such snapshot."
                         "Choose snapshot: " candidates nil t)
                        candidates))))
     (when id
-      (snapshot-timemachine-show-snapshot-with-id id))))
+      (snapshot-timemachine-goto-snapshot-with-id id))))
 
 (defun snapshot-timemachine-show-next-interesting-snapshot ()
   "Show the next snapshot in time that differs from the current one."
