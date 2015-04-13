@@ -649,9 +649,10 @@ snapshots in which the file was changed are returned."
                           ;; spaces to be underlined
                           (propertize (snapshot-name s)
                                       'face 'button))
-                  (format-time-string
-                   snapshot-timemachine-time-format
-                   (snapshot-date s))
+                  (list (format-time-string
+                         snapshot-timemachine-time-format
+                         (snapshot-date s))
+                        :time (snapshot-date s))
                   (if diffstat
                       (snapshot-timeline-format-diffstat diffstat 40)
                     "")))))
@@ -991,6 +992,17 @@ Intended for the `tabulated-list-revert-hook' of
           snapshot-timemachine--file)))
   (snapshot-timeline-sync-timemachine))
 
+(defun snapshot-timeline-compare-by-time (s1 s2)
+  "Compare snapshot S1 to S2 formatted as `tabulated-list-entries' by time.
+Return t when S1 was older than S2, `time-less-p' is used for
+comparison.  The snapshots should be formatted by
+`snapshot-timeline-format-snapshots' to use as
+`tabulated-list-entries'.  This function is intended as a sorter
+for the time field in `tabulated-list-format'."
+  (cl-labels ((get-time-from-entry (snapshot-entry)
+                                   (nth 2 (aref (cadr snapshot-entry) 1))))
+    (time-less-p (get-time-from-entry s1) (get-time-from-entry s2))))
+
 (define-derived-mode snapshot-timeline-mode tabulated-list-mode
   "Snapshot Timeline"
   "Display a timeline of snapshots of a file."
@@ -1003,7 +1015,7 @@ Intended for the `tabulated-list-revert-hook' of
           tabulated-list-format
           ;; TODO make widths configurable
           `[("Snapshot" 8 t)
-            ("Time" ,time-width nil) ;; TODO make sortable
+            ("Time" ,time-width snapshot-timeline-compare-by-time)
             ("Diffstat" 40 nil)])
     (tabulated-list-init-header)))
 
