@@ -36,9 +36,13 @@
 
 ;;; Code:
 
+;; Imports
+
 (require 'cl-lib)    ;; for cl-*
 (require 'subr-x)    ;; for string-remove-prefix
 (require 'diff-mode) ;; for the diff-{added,removed} faces
+
+;; Customisation
 
 (defvar snapshot-timemachine-time-format "%a %d %b %Y %R"
   "The format to use when displaying a snapshot's time.
@@ -58,7 +62,7 @@ timemachine and vice versa.  If, for some reason, loading a
 snapshot takes a while (e.g. remote storage), setting this to nil
 will make moving around in the timeline more responsive.")
 
-;;; Zipper
+;; Zipper
 
 (cl-defstruct zipper
   "A zipper suited for tracking focus in a list.
@@ -69,8 +73,8 @@ Slots:
 `focus' The focused element.
 
 `before' A list of the elements coming before the focused
-         element, the first element of the list is the element
-         just before the focused element, the last element of
+         element.  The first element of the list is the element
+         just before the focused element.  The last element of
          this list is the first element of the whole list
          represented by the zipper.
 
@@ -98,15 +102,15 @@ The order is preserved, but the focus is lost."
     l))
 
 (defun zipper-at-end (z)
-  "Return non-nil when the zipper Z is at the last element of the list."
+  "Return t when the zipper Z is at the last element of the list."
   (null (zipper-after z)))
 
 (defun zipper-at-start (z)
-  "Return non-nil when the zipper Z is at the first element of the list."
+  "Return t when the zipper Z is at the first element of the list."
   (null (zipper-before z)))
 
 (defun zipper-shift-next (z)
-  "Shifts the zipper Z to the next element in the list.
+  "Shift the zipper Z to the next element in the list.
 Return Z unchanged when at the last element."
   (if (zipper-at-end z) z
     (make-zipper
@@ -115,7 +119,7 @@ Return Z unchanged when at the last element."
      :after  (cdr (zipper-after z)))))
 
 (defun zipper-shift-prev (z)
-  "Shifts the zipper Z to the previous element in the list.
+  "Shift the zipper Z to the previous element in the list.
 Return Z unchanged when at the first element."
   (if (zipper-at-start z) z
     (make-zipper
@@ -124,7 +128,7 @@ Return Z unchanged when at the first element."
      :after  (cons (zipper-focus z) (zipper-after z)))))
 
 (defun zipper-shift-end (z)
-  "Shifts the zipper Z to the last element in the list.
+  "Shift the zipper Z to the last element in the list.
 Return Z unchanged when already at the last element in the list."
   (if (zipper-at-end z) z
     (let ((new-before (cons (zipper-focus z) (zipper-before z)))
@@ -138,8 +142,9 @@ Return Z unchanged when already at the last element in the list."
        :after nil))))
 
 (defun zipper-shift-start (z)
-  "Shifts the zipper Z to the first element in the list.
-Return Z unchanged when already at the first element in the list."
+  "Shift the zipper Z to the first element in the list.
+Return Z unchanged when already at the first element in the
+list."
   (if (zipper-at-start z) z
     (let ((new-after (cons (zipper-focus z) (zipper-after z)))
           (before (zipper-before z)))
@@ -153,9 +158,8 @@ Return Z unchanged when already at the first element in the list."
 
 (defun zipper-shift-forwards-to (z predicate)
   "Shift the zipper Z forwards to an element satisfying PREDICATE.
-Returns nil when no element satisfies PREDICATE or when Z is not
-a zipper."
-  (when (zipper-p z)
+Return nil when no element satisfies PREDICATE or when Z is nil."
+  (when z
     (cl-loop for z* = z then (zipper-shift-next z*)
              if (funcall predicate (zipper-focus z*))
              return z*
@@ -163,9 +167,9 @@ a zipper."
 
 (defun zipper-shift-backwards-to (z predicate)
   "Shift the zipper Z backwards to an element satisfying PREDICATE.
-Returns nil when no element satisfies PREDICATE or when Z is not
-a zipper."
-  (when (zipper-p z)
+Returns nil when no element satisfies PREDICATE or when Z is
+nil."
+  (when z
     (cl-loop for z* = z then (zipper-shift-prev z*)
              if (funcall predicate (zipper-focus z*))
              return z*
@@ -173,13 +177,13 @@ a zipper."
 
 (defun zipper-shift-to (z predicate)
   "Shift the zipper Z to an element satisfying PREDICATE.
-First try the next elements, then the previous ones.  Returns nil
-when no element satisfies PREDICATE or when Z is not a zipper."
+First try the next elements, then the previous ones.  Return nil
+when no element satisfies PREDICATE or when Z is nil."
   (or
-   (zipper-shift-forwards-to z predicate)
+   (zipper-shift-forwards-to  z predicate)
    (zipper-shift-backwards-to z predicate)))
 
-;;; Internal variables
+;; Internal variables
 
 (defvar-local snapshot-timemachine--snapshots nil
   "A data structure storing the `snapshot' structs.
@@ -189,7 +193,7 @@ In `snapper-timeline' buffers it will be a list.")
 (defvar-local snapshot-timemachine--file nil
   "Maintains the path to the original (most recent) file.")
 
-;;; Snapshot struct and helpers
+;; Snapshot struct and helpers
 
 (cl-defstruct snapshot
   "A struct representing a snapshot.
@@ -205,7 +209,8 @@ Slots:
        e.g. \"/home/.snapshots/2/snapshot/thomas/.emacs.d/init.el\".
 
 `date' The date/time at which the snapshot was made,
-       format: (HIGH LOW USEC PSEC)
+       format: (HIGH LOW USEC PSEC), a standard Emacs time
+       object.
 
 `diffstat' The number of lines added/removed compared to the
            previous snapshot, format: (ADDED . REMOVED). Can be
@@ -226,7 +231,7 @@ See `snapshot-timemachine-interesting-diffstatp' to know what
 'interesting' means in this context."
   (snapshot-timemachine-interesting-diffstatp (snapshot-diffstat s)))
 
-;;; Locating snapshots
+;; Locating snapshots
 
 (defun snapshot-timemachine-find-dir (file &optional dir)
   "Look for FILE by climbing up the directory tree starting from DIR.
@@ -244,9 +249,9 @@ Because it stops at \"~\"."
 
 (defun snapshot-timemachine-snapper-snapshot-finder (file)
   "Find snapshots of FILE made by Snapper.
-Looks for a ancestor directory containing a folder called
+Look for an ancestor directory containing a folder called
 \".snapshots\", which contains numbered snapshot folders.  Each
-snapshot folder has a subfolder called \"subfolder\" containing
+snapshot folder has a subfolder called \"snapshot\" containing
 the actual snapshotted subtree.
 
 For example, say FILE is
@@ -255,7 +260,7 @@ For example, say FILE is
 And the snapshots are stored in \"/home/.snapshots/\", the
 snapshots of the file will be:
 \"/home/.snapshots/2/thomas/.emacs.d/init.el\",
-\"/home/.snapshots/10/thomas/.emacs.d/init.el\" ...
+\"/home/.snapshots/10/thomas/.emacs.d/init.el\", ...,
 \"/home/.snapshots/100/thomas/.emacs.d/init.el\""
   (let* ((file (expand-file-name file)) ;; "/home/thomas/.emacs.d/init.el"
          (snapshot-dir
@@ -327,19 +332,22 @@ as `id'."
     ;; Fill in the diffstats (mutate)
     (cl-loop
      for s in snapshots and s-prev in (cons nil snapshots)
-     for diffstat = (when s-prev (snapshot-timemachine-diffstat
-                                  (snapshot-file s-prev)
-                                  (snapshot-file s)))
+     when s-prev
+     for diffstat = (snapshot-timemachine-diffstat
+                     (snapshot-file s-prev)
+                     (snapshot-file s))
      do (setf (snapshot-diffstat s) diffstat))
     ;; Return the (mutated) snapshots
     snapshots))
 
-;;; Interactive timemachine functions and their helpers
+;; Interactive timemachine functions and their helpers
 
 (defun snapshot-timemachine-show-focused-snapshot ()
   "Display the currently focused snapshot in the buffer.
 The current snapshot is stored in
-`snapshot-timemachine--snapshots'."
+`snapshot-timemachine--snapshots'.  This function should be
+called after changing the focused snapshot in
+`snapshot-timemachine--snapshots' to update the buffer."
   (let* ((snapshot (zipper-focus snapshot-timemachine--snapshots))
          (file (snapshot-file snapshot))
          (time (format-time-string
@@ -361,7 +369,7 @@ The current snapshot is stored in
              (snapshot-name snapshot) time)))
 
 (defun snapshot-timemachine-sync-timeline ()
-  "Focus the same snapshot in the timeline.
+  "Focus the same snapshot in the timeline as in the timemachine.
 Only acts when `snapshot-timemachine-sync-with-timeline' is
 non-nil, in which case the same snapshot is focused in the
 corresponding timeline buffer as in the current timemachine
@@ -376,7 +384,7 @@ none."
           (snapshot-timeline-goto-snapshot-with-id id))))))
 
 (defun snapshot-timemachine-show-next-snapshot ()
-  "Show the next snapshot in time."
+  "Show the next snapshot."
   (interactive)
   (if (zipper-at-end snapshot-timemachine--snapshots)
       (message "Last snapshot")
@@ -386,7 +394,7 @@ none."
     (snapshot-timemachine-sync-timeline)))
 
 (defun snapshot-timemachine-show-prev-snapshot ()
-  "Show the previous snapshot in time."
+  "Show the previous snapshot."
   (interactive)
   (if (zipper-at-start snapshot-timemachine--snapshots)
       (message "First snapshot")
@@ -396,7 +404,7 @@ none."
     (snapshot-timemachine-sync-timeline)))
 
 (defun snapshot-timemachine-show-first-snapshot ()
-  "Show the first snapshot in time."
+  "Show the first snapshot."
   (interactive)
   (if (zipper-at-start snapshot-timemachine--snapshots)
       (message "Already at first snapshot")
@@ -406,7 +414,7 @@ none."
     (snapshot-timemachine-sync-timeline)))
 
 (defun snapshot-timemachine-show-last-snapshot ()
-  "Show the last snapshot in time."
+  "Show the last snapshot."
   (interactive)
   (if (zipper-at-end snapshot-timemachine--snapshots)
       (message "Already at last snapshot")
@@ -445,14 +453,14 @@ an error when there is no such snapshot."
                      (snapshot-id snapshot)))
                   (zipper-to-list snapshot-timemachine--snapshots)))
          (id (cdr (assoc
-                       (completing-read
-                        "Choose snapshot: " candidates nil t)
-                       candidates))))
+                   (completing-read
+                    "Choose snapshot: " candidates nil t)
+                   candidates))))
     (when id
       (snapshot-timemachine-goto-snapshot-with-id id))))
 
 (defun snapshot-timemachine-show-next-interesting-snapshot ()
-  "Show the next snapshot in time that differs from the current one."
+  "Show the next snapshot that differs from the current one."
   (interactive)
   (if (zipper-at-end snapshot-timemachine--snapshots)
       (message "Last snapshot")
@@ -466,7 +474,7 @@ an error when there is no such snapshot."
         (snapshot-timemachine-sync-timeline)))))
 
 (defun snapshot-timemachine-show-prev-interesting-snapshot ()
-  "Show the previous snapshot in time that differs from the current one."
+  "Show the previous snapshot that differs from the current one."
   (interactive)
   (if (zipper-at-start snapshot-timemachine--snapshots)
       (message "First snapshot")
@@ -494,8 +502,8 @@ which case a new one is created and returned."
     ;; didn't check this, we would get into trouble when the user opened
     ;; timelines of more than one file with the same name. TODO test this
     (cond ((and correct-name
-             (with-current-buffer correct-name
-               (equal file snapshot-timemachine--file)))
+                (with-current-buffer correct-name
+                  (equal file snapshot-timemachine--file)))
            correct-name)
           (create-missing
            (snapshot-timeline-create
@@ -507,8 +515,8 @@ which case a new one is created and returned."
 
 (defun snapshot-timemachine-show-timeline ()
   "Display the snapshot timeline of the given file.
-Leaves the point on the line of the snapshot that was active in
-the time machine."
+Leave the point on the line in the timeline of the snapshot that
+was active in the timemachine."
   (interactive)
   (let ((focused-snapshot-id
          (snapshot-id (zipper-focus snapshot-timemachine--snapshots))))
@@ -519,10 +527,10 @@ the time machine."
 
 (defun snapshot-timemachine-restore-snapshot (snapshot)
   "Restore the given SNAPSHOT.
-Replaces the current file with the snapshotted file's contents.
-Prompts the user for confirmation.  Uses the buffer-local
-variable `snapshot-timemachine--file' to find out the location of
-the current file.  Does nothing when SNAPSHOT is nil."
+Replace the current file with the snapshotted file's contents.
+Prompt the user for confirmation.  Use the buffer-local variable
+`snapshot-timemachine--file' to find out the location of the
+current file.  Do nothing when SNAPSHOT is nil."
   (when (and snapshot
              (y-or-n-p
               (format "Replace the contents of %s with snapshot %s? "
@@ -536,8 +544,8 @@ the current file.  Does nothing when SNAPSHOT is nil."
 
 (defun snapshot-timemachine-restore ()
   "Restore the focused snapshot.
-Replaces the current file with the snapshotted file's contents.
-Prompts the user for confirmation."
+Replace the current file with the snapshotted file's contents.
+Prompt the user for confirmation."
   (interactive)
   (snapshot-timemachine-restore-snapshot
    (zipper-focus snapshot-timemachine--snapshots)))
@@ -547,7 +555,7 @@ Prompts the user for confirmation."
   (interactive)
   (kill-buffer))
 
-;;; Minor-mode for snapshots
+;; Minor-mode for snapshots
 
 (define-minor-mode snapshot-timemachine-mode
   "Step through snapshots of files."
@@ -568,10 +576,10 @@ Prompts the user for confirmation."
     ("s" . write-file))
   :group 'snapshot-timemachine)
 
-;;; Timemachine launcher
+;; Timemachine launcher
 
 (defun snapshot-timemachine-create (file snapshots)
-  "Create and return a snapshot time machine buffer.
+  "Create and return a snapshot timemachine buffer.
 The snapshot timemachine will be of FILE using SNAPSHOTS.
 SNAPSHOTS must be a non-empty list.  The last snapshot is
 displayed.  Return the created buffer."
@@ -604,16 +612,16 @@ FILE defaults to the file the current buffer is visiting."
       (switch-to-buffer
        (snapshot-timemachine-create file snapshots)))))
 
-;;; Interactive timeline functions and their helpers
+;; Interactive timeline functions and their helpers
 
 (defun snapshot-timeline-format-diffstat (diffstat &optional width)
   "Format DIFFSTAT as plus and minus signs with a maximum width of WIDTH.
-WIDTH defaults to 64 characters.  When there DIFFSTAT is nil
-or (0 . 0), an empty string is returned.  Otherwise, a string
-consisting a plus sign (with face `diff-added') for each added
+WIDTH defaults to 64 characters.  When the DIFFSTAT is nil or (0
+. 0), an empty string is returned.  Otherwise, a string
+consisting of a plus sign (with face `diff-added') for each added
 line and a minus sign (with face `diff-removed') for each removed
 line.  If the total number of signs would exceed WIDTH, the
-number of plus and minus sign is relative to WIDTH."
+number of plus and minus signs is relative to WIDTH."
   (destructuring-bind (pluses . minuses) diffstat
     (let ((width (or width 64))
           (total (+ pluses minuses)))
@@ -670,7 +678,7 @@ snapshot."
   (tabulated-list-print t))
 
 (defun snapshot-timeline-show-snapshot-or-diff ()
-  "Show the snapshot under the point or the diff, depending on the column.
+  "Show the snapshot or diff under the point, depending on the column.
 If the point is located in the Diffstat column, a diff with the
 previous snapshot is shown (`snapshot-timeline-show-diff'),
 otherwise the snapshot of the file is
@@ -707,8 +715,8 @@ which case a new one is created and returned."
           (t nil))))
 
 (defun snapshot-timeline-show-snapshot ()
-  "Show the snapshot under the point in the snapshot time machine.
-Open the time machine buffer in the same window."
+  "Show the snapshot under the point in the snapshot timemachine.
+Open the timemachine buffer in the same window."
   (interactive)
   (let ((id (tabulated-list-get-id)))
     (if (null id)
@@ -719,8 +727,8 @@ Open the time machine buffer in the same window."
         (snapshot-timemachine-goto-snapshot-with-id id)))))
 
 (defun snapshot-timeline-view-snapshot ()
-  "Show the snapshot under the point in the snapshot time machine.
-Open the time machine buffer in another window and leave the
+  "Show the snapshot under the point in the snapshot timemachine.
+Open the timemachine buffer in another window and leave the
 timeline window focused."
   (interactive)
   (let ((id (tabulated-list-get-id)))
@@ -766,7 +774,8 @@ for B."
                finally return (cons a b)))))
 
 (defun snapshot-timeline-show-diff-between (s1 s2)
-  "Show the diff between snapshots S1 and S2."
+  "Show the diff between snapshots S1 and S2.
+Open a buffer using `diff'."
   (diff (snapshot-file s1) (snapshot-file s2)
         snapshot-timemachine-diff-switches)
   (let* ((diff-buffer (get-buffer "*Diff*"))
@@ -803,19 +812,19 @@ marks A and B will be bound to them."
   `(snapshot-timeline-validate-A-B (lambda ,args ,@body)))
 
 (defun snapshot-timeline-show-diff-A-B ()
-  "Show the diff between the snapshots marked as A and B.
+  "Show the `diff' between the snapshots marked as A and B.
 The user is informed of missing marks."
   (interactive)
   (with-A-B (a b) (snapshot-timeline-show-diff-between a b)))
 
 (defun snapshot-timeline-ediff-A-B ()
-  "Start an ediff session between the snapshots marked as A and B.
+  "Start an `ediff' session between the snapshots marked as A and B.
 The user is informed of missing marks."
   (interactive)
   (with-A-B (a b) (ediff (snapshot-file a) (snapshot-file b))))
 
 (defun snapshot-timeline-emerge-A-B ()
-  "Start an emerge session between the snapshots marked as A and B.
+  "Start an `emerge' session between the snapshots marked as A and B.
 The user is informed of missing marks."
   (interactive)
   (with-A-B (a b) (emerge-files nil (snapshot-file a) (snapshot-file b) nil)))
@@ -840,7 +849,7 @@ The user is informed of missing marks."
 (defun snapshot-timeline-unmark-all (&optional c)
   "Remove all marks (equal to C when passed) from the timeline.
 When C is passed and non-nil, only marks matching C are removed,
-otherwise all marks are passed."
+otherwise all marks are removed."
   (interactive)
   (save-excursion
     (cl-loop for pos = (progn (goto-char (point-min)) (point))
@@ -866,8 +875,8 @@ none."
 
 (defun snapshot-timeline-goto-snapshot-with-id (id)
   "Go to the snapshot with the given ID.
-Must be called from within a snapshot-timeline buffer.  Throws
-an error when there is no such snapshot."
+Must be called from within a snapshot-timeline buffer.  Throws an
+error when there is no such snapshot."
   ;; No need to move when we're on the right snapshot
   (unless (= id (tabulated-list-get-id))
     (cl-loop for pos = (progn (goto-char (point-min)) (point-min))
@@ -916,7 +925,8 @@ the last snapshot, for example when the order is reversed."
   (snapshot-timeline-sync-timemachine))
 
 (defun snapshot-timeline-goto-next-interesting-snapshot ()
-  "Go to the next snapshot in the timeline that differs from the current one."
+  "Go to the next snapshot in the timeline that differs from the
+current one."
   (interactive)
   (cl-loop for pos = (progn (forward-line) (point))
            while (< pos (point-max))
@@ -926,7 +936,8 @@ the last snapshot, for example when the order is reversed."
   (snapshot-timeline-sync-timemachine))
 
 (defun snapshot-timeline-goto-prev-interesting-snapshot ()
-  "Go to the previous snapshot in the timeline that differs from the current one."
+  "Go to the previous snapshot in the timeline that differs from
+the current one."
   (interactive)
   (cl-loop for pos = (progn (forward-line -1) (point))
            while (< (point-min) pos)
@@ -937,13 +948,13 @@ the last snapshot, for example when the order is reversed."
 
 (defun snapshot-timeline-restore ()
   "Restore the focused snapshot.
-Replaces the current file with the snapshotted file's contents.
-Prompts the user for confirmation."
+Replace the current file with the snapshotted file's contents.
+Prompt the user for confirmation."
   (interactive)
   (snapshot-timemachine-restore-snapshot
    (snapshot-timeline-snapshot-by-id (tabulated-list-get-id))))
 
-;;; Minor-mode for timeline
+;; Minor-mode for timeline
 
 (defvar snapshot-timeline-mode-map
   (let ((map (make-sparse-keymap)))
@@ -996,7 +1007,7 @@ Intended for the `tabulated-list-revert-hook' of
             ("Diffstat" 40 nil)])
     (tabulated-list-init-header)))
 
-;;; Timeline launcher
+;; Timeline launcher
 
 (defun snapshot-timeline-create (file snapshots)
   "Create and return a snapshot timeline buffer.
