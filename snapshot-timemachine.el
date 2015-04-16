@@ -23,6 +23,57 @@
 
 ;;; Commentary:
 
+;; For usage instructions and practical matters, see README.md. What follows
+;; is a quick overview of the design of this program.
+;;
+;; The program provides two main features: the `snapshot-timemachine' and the
+;; `snapshot-timeline'. These names also function as namespaces for related
+;; functions. As this file is called snapshot-timemachine, the
+;; `snapshot-timemachine' namespace is used for common functionality.
+
+;; What happens first when either of these functions is invoked is that the
+;; snapshots of the visited file are retrieved using the function stored in
+;; `snapshot-timemachine-snapshot-finder'. By default it is set to
+;; `snapshot-timemachine-snapper-snapshot-finder', a function that will find
+;; snapshots of a file made by Snapper (http://snapper.io).
+
+;; You can use snapshot-timemachine for your own (custom) snapshot system
+;; other than Snapper by defining a function to find snapshots. See the
+;; docstring of `snapshot-timemachine-snapshot-finder' for more details.
+
+;; After using the snapshot finding function, a new buffer is created and the
+;; snapshots are stored in a buffer-local variable
+;; `snapshot-timemachine--snapshots'. The original filename is stored in
+;; `snapshot-timemachine--file'.
+
+;; `snapshot-timemachine' stores the snapshots in
+;; `snapshot-timemachine--snapshots' as a `zipper`. A zipper is a data
+;; structure to walk through a list while maintaining an element in
+;; focus. Going to the previous or next element is an O(1) operation as
+;; opposed to a singly-linked list's O(n) (previous) and O(1) (next). The
+;; trick is a keep track of triple: the focused element, a list of the next
+;; elements, and a list of the previous elements. The first element of this
+;; last list is the previous element, and its last element is the very first
+;; element of the list as a whole. Shifting to the previous or next element is
+;; a simply matter of executing `car', `cons', and `cdr' once each, quite
+;; elegant!
+
+;; `snapshot-timeline' stores snapshots as a regular list as it derives from
+;; `tabulated-list-mode' which requires entries to be stored as a list
+;; anyway. The snapshot belonging to a line is retrieved by finding the
+;; snapshot in the list whose `snapshot-id' matches `tabulated-list-get-id'.
+
+;; When going from one view to the other, the snapshots are reused and
+;; converted to or from a zipper/list. When going from the timeline to the
+;; timemachine, the buffer is recreated as its contents differ
+;; anyway. However, going from the timemachine to the timeline, an existing
+;; timeline buffer is reused.
+
+;; Navigation through snapshots in the snapshot-timemachine happens by
+;; modifying the zipper in `snapshot-timemachine--snapshots' and calling
+;; `snapshot-timemachine-show-focused-snapshot' to let the buffer reflect the
+;; updated zipper.
+
 ;; TODO
 ;; * BUG: when the timeline is visible at the same time as the timemachine and
 ;;   the timemachine snapshot changes, the cursor in the timeline doesn't
