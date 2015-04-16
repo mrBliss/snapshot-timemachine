@@ -92,6 +92,7 @@
 (require 'cl-lib)    ;; for cl-*
 (require 'subr-x)    ;; for string-remove-prefix
 (require 'diff-mode) ;; for the diff-{added,removed} faces
+(require 'hl-line)   ;; for hl-line-{mode,highlight}
 
 ;; Customisation
 
