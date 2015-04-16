@@ -1,5 +1,19 @@
 # snapshot-timemachine
 
+<!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc/generate-toc again -->
+**Table of Contents**
+
+- [snapshot-timemachine](#snapshot-timemachine)
+    - [Timemachine](#timemachine)
+    - [Timeline](#timeline)
+    - [Installation](#installation)
+    - [Customisation](#customisation)
+    - [Your own snapshot system](#your-own-snapshot-system)
+    - [Licence](#licence)
+
+<!-- markdown-toc end -->
+
+
 Snapshot-timemachine provides a polished interface to step through the
 snapshots of a file made by a third-party snapshot or backup facility, e.g.
 Btrfs, ZFS, etc.
@@ -9,8 +23,8 @@ simple interface to add support for other snapshot facilities.
 
 [Snapper]: http://snapper.io
 
-It provides two views: the [timemachine](#Timemachine) and the
-[timeline](#Timeline).
+It provides two views: the [timemachine](#timemachine) and the
+[timeline](#timeline).
 
 ## Timemachine
 
@@ -33,7 +47,7 @@ Available bindings:
 * `<` Show the first recorded snapshot
 * `>` Show the last (current) recorded snapshot
 * `j` Pick a snapshot to show
-* `t` or `l` Activate the [timeline](#Timeline)
+* `t` or `l` Activate the [timeline](#timeline)
 * `q` Quit
 * `r` Restore the file to the shown snapshot
 * `s` Save the shown snapshot as a new file
@@ -50,9 +64,9 @@ compare them or to start an `ediff` or `emerge` session using them.
 
 Available bindings:
 
-* `RET` Show the selected snapshot in the [timemachine](#Timemachine) or the
+* `RET` Show the selected snapshot in the [timemachine](#timemachine) or the
   diff when the point is on a diffstat
-* `SPC` or `v` Show the selected snapshot in the [timemachine](#Timemachine)
+* `SPC` or `v` Show the selected snapshot in the [timemachine](#timemachine)
   in another window
 * `=` Show the diff between the previous snapshot and the selected one
 * `r` Restore the file to the shown snapshot
