@@ -5,7 +5,7 @@
 ;; Author: Thomas Winant <dewinant@gmail.com>
 ;; URL: https://github.com/mrBliss/snapshot-timemachine
 ;; Version: 0.1
-;; Package-Requires: ((cl-lib "0.5"))
+;; Package-Requires: ((emacs "24.4") (cl-lib "0.5"))
 ;; Created: Apr 4 2015
 
 ;; This program is free software; you can redistribute it and/or modify
