@@ -47,16 +47,16 @@
 ;; `snapshot-timemachine--file'.
 
 ;; `snapshot-timemachine' stores the snapshots in
-;; `snapshot-timemachine--snapshots' as a `zipper`. A zipper is a data
-;; structure to walk through a list while maintaining an element in
-;; focus. Going to the previous or next element is an O(1) operation as
-;; opposed to a singly-linked list's O(n) (previous) and O(1) (next). The
-;; trick is a keep track of triple: the focused element, a list of the next
-;; elements, and a list of the previous elements. The first element of this
-;; last list is the previous element, and its last element is the very first
-;; element of the list as a whole. Shifting to the previous or next element is
-;; a simply matter of executing `car', `cons', and `cdr' once each, quite
-;; elegant!
+;; `snapshot-timemachine--snapshots' as a `snapshot-timemachine--zipper'. A
+;; zipper is a data structure to walk through a list while maintaining an
+;; element in focus. Going to the previous or next element is an O(1)
+;; operation as opposed to a singly-linked list's O(n) (previous) and O(1)
+;; (next). The trick is a keep track of triple: the focused element, a list of
+;; the next elements, and a list of the previous elements. The first element
+;; of this last list is the previous element, and its last element is the very
+;; first element of the list as a whole. Shifting to the previous or next
+;; element is a simply matter of executing `car', `cons', and `cdr' once each,
+;; quite elegant!
 
 ;; `snapshot-timeline' stores snapshots as a regular list as it derives from
 ;; `tabulated-list-mode' which requires entries to be stored as a list
@@ -115,7 +115,7 @@ will make moving around in the timeline more responsive.")
 
 ;; Zipper
 
-(cl-defstruct zipper
+(cl-defstruct snapshot-timemachine--zipper
   "A zipper suited for tracking focus in a list.
 Zippers must always contain at least one element, the focused element.
 
@@ -132,107 +132,112 @@ Slots:
 `after' A list of the elements coming after the focused element."
   focus before after)
 
-(defun zipper-from-list (l)
+(defun snapshot-timemachine--zipper-from-list (l)
   "Make a zipper from the given list L.
 The first element of the list will be focused.  Return nil when
 the list was empty."
   (when l
-    (make-zipper
+    (make-snapshot-timemachine--zipper
      :focus  (car l)
      :before nil
      :after  (cdr l))))
 
-(defun zipper-to-list (z)
+(defun snapshot-timemachine--zipper-to-list (z)
   "Convert the zipper Z back to a list.
 The order is preserved, but the focus is lost."
-  (let ((l (cons (zipper-focus z) (zipper-after z)))
-        (before (zipper-before z)))
+  (let ((l (cons (snapshot-timemachine--zipper-focus z)
+                 (snapshot-timemachine--zipper-after z)))
+        (before (snapshot-timemachine--zipper-before z)))
     (while before
       (push (car before) l)
       (setq before (cdr before)))
     l))
 
-(defun zipper-at-end (z)
+(defun snapshot-timemachine--zipper-at-end (z)
   "Return t when the zipper Z is at the last element of the list."
-  (null (zipper-after z)))
+  (null (snapshot-timemachine--zipper-after z)))
 
-(defun zipper-at-start (z)
+(defun snapshot-timemachine--zipper-at-start (z)
   "Return t when the zipper Z is at the first element of the list."
-  (null (zipper-before z)))
+  (null (snapshot-timemachine--zipper-before z)))
 
-(defun zipper-shift-next (z)
+(defun snapshot-timemachine--zipper-shift-next (z)
   "Shift the zipper Z to the next element in the list.
 Return Z unchanged when at the last element."
-  (if (zipper-at-end z) z
-    (make-zipper
-     :focus  (car (zipper-after z))
-     :before (cons (zipper-focus z) (zipper-before z))
-     :after  (cdr (zipper-after z)))))
+  (if (snapshot-timemachine--zipper-at-end z) z
+    (make-snapshot-timemachine--zipper
+     :focus  (car (snapshot-timemachine--zipper-after z))
+     :before (cons (snapshot-timemachine--zipper-focus z)
+                   (snapshot-timemachine--zipper-before z))
+     :after  (cdr (snapshot-timemachine--zipper-after z)))))
 
-(defun zipper-shift-prev (z)
+(defun snapshot-timemachine--zipper-shift-prev (z)
   "Shift the zipper Z to the previous element in the list.
 Return Z unchanged when at the first element."
-  (if (zipper-at-start z) z
-    (make-zipper
-     :focus  (car (zipper-before z))
-     :before (cdr (zipper-before z))
-     :after  (cons (zipper-focus z) (zipper-after z)))))
+  (if (snapshot-timemachine--zipper-at-start z) z
+    (make-snapshot-timemachine--zipper
+     :focus  (car (snapshot-timemachine--zipper-before z))
+     :before (cdr (snapshot-timemachine--zipper-before z))
+     :after  (cons (snapshot-timemachine--zipper-focus z)
+                   (snapshot-timemachine--zipper-after z)))))
 
-(defun zipper-shift-end (z)
+(defun snapshot-timemachine--zipper-shift-end (z)
   "Shift the zipper Z to the last element in the list.
 Return Z unchanged when already at the last element in the list."
-  (if (zipper-at-end z) z
-    (let ((new-before (cons (zipper-focus z) (zipper-before z)))
-          (after (zipper-after z)))
+  (if (snapshot-timemachine--zipper-at-end z) z
+    (let ((new-before (cons (snapshot-timemachine--zipper-focus z)
+                            (snapshot-timemachine--zipper-before z)))
+          (after (snapshot-timemachine--zipper-after z)))
       (while (cdr after)
         (push (car after) new-before)
         (setq after (cdr after)))
-      (make-zipper
+      (make-snapshot-timemachine--zipper
        :focus (car after)
        :before new-before
        :after nil))))
 
-(defun zipper-shift-start (z)
+(defun snapshot-timemachine--zipper-shift-start (z)
   "Shift the zipper Z to the first element in the list.
 Return Z unchanged when already at the first element in the
 list."
-  (if (zipper-at-start z) z
-    (let ((new-after (cons (zipper-focus z) (zipper-after z)))
-          (before (zipper-before z)))
+  (if (snapshot-timemachine--zipper-at-start z) z
+    (let ((new-after (cons (snapshot-timemachine--zipper-focus z)
+                           (snapshot-timemachine--zipper-after z)))
+          (before (snapshot-timemachine--zipper-before z)))
       (while (cdr before)
         (push (car before) new-after)
         (setq before (cdr before)))
-      (make-zipper
+      (make-snapshot-timemachine--zipper
        :focus (car before)
        :before nil
        :after new-after))))
 
-(defun zipper-shift-forwards-to (z predicate)
+(defun snapshot-timemachine--zipper-shift-forwards-to (z predicate)
   "Shift the zipper Z forwards to an element satisfying PREDICATE.
 Return nil when no element satisfies PREDICATE or when Z is nil."
   (when z
-    (cl-loop for z* = z then (zipper-shift-next z*)
-             if (funcall predicate (zipper-focus z*))
+    (cl-loop for z* = z then (snapshot-timemachine--zipper-shift-next z*)
+             if (funcall predicate (snapshot-timemachine--zipper-focus z*))
              return z*
-             until (zipper-at-end z*))))
+             until (snapshot-timemachine--zipper-at-end z*))))
 
-(defun zipper-shift-backwards-to (z predicate)
+(defun snapshot-timemachine--zipper-shift-backwards-to (z predicate)
   "Shift the zipper Z backwards to an element satisfying PREDICATE.
 Returns nil when no element satisfies PREDICATE or when Z is
 nil."
   (when z
-    (cl-loop for z* = z then (zipper-shift-prev z*)
-             if (funcall predicate (zipper-focus z*))
+    (cl-loop for z* = z then (snapshot-timemachine--zipper-shift-prev z*)
+             if (funcall predicate (snapshot-timemachine--zipper-focus z*))
              return z*
-             until (zipper-at-start z*))))
+             until (snapshot-timemachine--zipper-at-start z*))))
 
-(defun zipper-shift-to (z predicate)
+(defun snapshot-timemachine--zipper-shift-to (z predicate)
   "Shift the zipper Z to an element satisfying PREDICATE.
 First try the next elements, then the previous ones.  Return nil
 when no element satisfies PREDICATE or when Z is nil."
   (or
-   (zipper-shift-forwards-to  z predicate)
-   (zipper-shift-backwards-to z predicate)))
+   (snapshot-timemachine--zipper-shift-forwards-to  z predicate)
+   (snapshot-timemachine--zipper-shift-backwards-to z predicate)))
 
 ;; Internal variables
 
@@ -399,7 +404,8 @@ The current snapshot is stored in
 `snapshot-timemachine--snapshots'.  This function should be
 called after changing the focused snapshot in
 `snapshot-timemachine--snapshots' to update the buffer."
-  (let* ((snapshot (zipper-focus snapshot-timemachine--snapshots))
+  (let* ((snapshot (snapshot-timemachine--zipper-focus
+                    snapshot-timemachine--snapshots))
          (file (snapshot-file snapshot))
          (time (format-time-string
                 snapshot-timemachine-time-format
@@ -428,7 +434,8 @@ buffer.  Doesn't try to create a timeline buffer if there is
 none."
   (when snapshot-timemachine-sync-with-timeline
     (let ((id (snapshot-id
-               (zipper-focus snapshot-timemachine--snapshots)))
+               (snapshot-timemachine--zipper-focus
+                snapshot-timemachine--snapshots)))
           (timeline (snapshot-timemachine-get-timeline-buffer)))
       (when timeline
         (with-current-buffer timeline
@@ -437,40 +444,44 @@ none."
 (defun snapshot-timemachine-show-next-snapshot ()
   "Show the next snapshot."
   (interactive)
-  (if (zipper-at-end snapshot-timemachine--snapshots)
+  (if (snapshot-timemachine--zipper-at-end snapshot-timemachine--snapshots)
       (message "Last snapshot")
     (setq snapshot-timemachine--snapshots
-          (zipper-shift-next snapshot-timemachine--snapshots))
+          (snapshot-timemachine--zipper-shift-next
+           snapshot-timemachine--snapshots))
     (snapshot-timemachine-show-focused-snapshot)
     (snapshot-timemachine-sync-timeline)))
 
 (defun snapshot-timemachine-show-prev-snapshot ()
   "Show the previous snapshot."
   (interactive)
-  (if (zipper-at-start snapshot-timemachine--snapshots)
+  (if (snapshot-timemachine--zipper-at-start snapshot-timemachine--snapshots)
       (message "First snapshot")
     (setq snapshot-timemachine--snapshots
-          (zipper-shift-prev snapshot-timemachine--snapshots))
+          (snapshot-timemachine--zipper-shift-prev
+           snapshot-timemachine--snapshots))
     (snapshot-timemachine-show-focused-snapshot)
     (snapshot-timemachine-sync-timeline)))
 
 (defun snapshot-timemachine-show-first-snapshot ()
   "Show the first snapshot."
   (interactive)
-  (if (zipper-at-start snapshot-timemachine--snapshots)
+  (if (snapshot-timemachine--zipper-at-start snapshot-timemachine--snapshots)
       (message "Already at first snapshot")
     (setq snapshot-timemachine--snapshots
-          (zipper-shift-start snapshot-timemachine--snapshots))
+          (snapshot-timemachine--zipper-shift-start
+           snapshot-timemachine--snapshots))
     (snapshot-timemachine-show-focused-snapshot)
     (snapshot-timemachine-sync-timeline)))
 
 (defun snapshot-timemachine-show-last-snapshot ()
   "Show the last snapshot."
   (interactive)
-  (if (zipper-at-end snapshot-timemachine--snapshots)
+  (if (snapshot-timemachine--zipper-at-end snapshot-timemachine--snapshots)
       (message "Already at last snapshot")
     (setq snapshot-timemachine--snapshots
-          (zipper-shift-end snapshot-timemachine--snapshots))
+          (snapshot-timemachine--zipper-shift-end
+           snapshot-timemachine--snapshots))
     (snapshot-timemachine-show-focused-snapshot)
     (snapshot-timemachine-sync-timeline)))
 
@@ -479,8 +490,9 @@ none."
 Must be called from within a snapshot-timemachine buffer.  Throws
 an error when there is no such snapshot."
   (unless (= id (snapshot-id
-                 (zipper-focus snapshot-timemachine--snapshots)))
-    (let ((z (zipper-shift-to
+                 (snapshot-timemachine--zipper-focus
+                  snapshot-timemachine--snapshots)))
+    (let ((z (snapshot-timemachine--zipper-shift-to
               snapshot-timemachine--snapshots
               (lambda (s)
                 (= (snapshot-id s) id)))))
@@ -502,7 +514,8 @@ an error when there is no such snapshot."
                               snapshot-timemachine-time-format
                               (snapshot-date snapshot)))
                      (snapshot-id snapshot)))
-                  (zipper-to-list snapshot-timemachine--snapshots)))
+                  (snapshot-timemachine--zipper-to-list
+                   snapshot-timemachine--snapshots)))
          (id (cdr (assoc
                    (completing-read
                     "Choose snapshot: " candidates nil t)
@@ -513,10 +526,11 @@ an error when there is no such snapshot."
 (defun snapshot-timemachine-show-next-interesting-snapshot ()
   "Show the next snapshot that differs from the current one."
   (interactive)
-  (if (zipper-at-end snapshot-timemachine--snapshots)
+  (if (snapshot-timemachine--zipper-at-end snapshot-timemachine--snapshots)
       (message "Last snapshot")
-    (let ((z* (zipper-shift-forwards-to
-               (zipper-shift-next snapshot-timemachine--snapshots)
+    (let ((z* (snapshot-timemachine--zipper-shift-forwards-to
+               (snapshot-timemachine--zipper-shift-next
+                snapshot-timemachine--snapshots)
                #'snapshot-interestingp)))
       (if (null z*)
           (message "No next differing snapshot found.")
@@ -527,10 +541,11 @@ an error when there is no such snapshot."
 (defun snapshot-timemachine-show-prev-interesting-snapshot ()
   "Show the previous snapshot that differs from the current one."
   (interactive)
-  (if (zipper-at-start snapshot-timemachine--snapshots)
+  (if (snapshot-timemachine--zipper-at-start snapshot-timemachine--snapshots)
       (message "First snapshot")
-    (let ((z* (zipper-shift-backwards-to
-               (zipper-shift-prev snapshot-timemachine--snapshots)
+    (let ((z* (snapshot-timemachine--zipper-shift-backwards-to
+               (snapshot-timemachine--zipper-shift-prev
+                snapshot-timemachine--snapshots)
                #'snapshot-interestingp)))
       (if (null z*)
           (message "No previous differing snapshot found.")
@@ -559,7 +574,8 @@ which case a new one is created and returned."
           (create-missing
            (snapshot-timeline-create
             snapshot-timemachine--file
-            (zipper-to-list snapshot-timemachine--snapshots)))
+            (snapshot-timemachine--zipper-to-list
+             snapshot-timemachine--snapshots)))
           ;; Better to be explicit: when no buffer was found and
           ;; CREATE-MISSING was nil, return nil.
           (t nil))))
@@ -570,7 +586,8 @@ Leave the point on the line in the timeline of the snapshot that
 was active in the timemachine."
   (interactive)
   (let ((focused-snapshot-id
-         (snapshot-id (zipper-focus snapshot-timemachine--snapshots))))
+         (snapshot-id (snapshot-timemachine--zipper-focus
+                       snapshot-timemachine--snapshots))))
     (with-current-buffer
         (switch-to-buffer (snapshot-timemachine-get-timeline-buffer t))
       ;; Go to the snapshot that was active in the timemachine
@@ -599,7 +616,7 @@ Replace the current file with the snapshotted file's contents.
 Prompt the user for confirmation."
   (interactive)
   (snapshot-timemachine-restore-snapshot
-   (zipper-focus snapshot-timemachine--snapshots)))
+   (snapshot-timemachine--zipper-focus snapshot-timemachine--snapshots)))
 
 (defun snapshot-timemachine-quit ()
   "Exit the timemachine."
@@ -636,15 +653,17 @@ SNAPSHOTS must be a non-empty list.  The last snapshot is
 displayed.  Return the created buffer."
   (let ((timemachine-buffer
          (format "snapshot:%s" (file-name-nondirectory file)))
-        ;; We say it must be non-empty, so `zipper-from-list' shouldn't fail.
-        (z (zipper-from-list snapshots)))
+        ;; We say it must be non-empty, so
+        ;; `snapshot-timemachine--zipper-from-list' shouldn't fail.
+        (z (snapshot-timemachine--zipper-from-list snapshots)))
     (cl-destructuring-bind (cur-line mode)
         (with-current-buffer (find-file-noselect file t)
           (list (line-number-at-pos) major-mode))
       (with-current-buffer (get-buffer-create timemachine-buffer)
         (funcall mode)
         (setq snapshot-timemachine--file file
-              snapshot-timemachine--snapshots (zipper-shift-end z))
+              snapshot-timemachine--snapshots
+              (snapshot-timemachine--zipper-shift-end z))
         (snapshot-timemachine-show-focused-snapshot)
         (goto-char (point-min))
         (forward-line (1- cur-line))
