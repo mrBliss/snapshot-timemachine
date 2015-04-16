@@ -74,7 +74,11 @@ Available bindings:
 
 ## Installation
 
-TODO
+
+* Manual install:
+
+        (add-to-list 'load-path "/path/to/snapshot-timemachine")
+        (require 'snapshot-timemachine)
 
 ## Customisation
 
