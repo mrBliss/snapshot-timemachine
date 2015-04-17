@@ -244,8 +244,8 @@ when no element satisfies PREDICATE or when Z is nil."
 
 (defvar-local snapshot-timemachine--snapshots nil
   "A data structure storing the `snapshot' structs.
-Will be a zipper in `snapper-timemachine' buffers.
-In `snapper-timeline' buffers it will be a list.")
+Will be a zipper in `snapshot-timemachine' buffers.
+In `snapshot-timeline' buffers it will be a list.")
 
 (defvar-local snapshot-timemachine--file nil
   "Maintains the path to the original (most recent) file.")
