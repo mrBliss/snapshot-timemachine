@@ -676,12 +676,14 @@ displayed.  Return the created buffer."
   "Start the snapshot timemachine for FILE.
 FILE defaults to the file the current buffer is visiting."
   (interactive)
-  (let* ((file (or file (buffer-file-name)))
-         (snapshots (snapshot-timemachine-find-snapshots file)))
-    (if (null snapshots)
-        (message "No snapshots found")
-      (switch-to-buffer
-       (snapshot-timemachine-create file snapshots)))))
+  (let ((file (or file (buffer-file-name))))
+    (if (null file)
+        (message "Buffer is not visiting a file")
+      (let ((snapshots (snapshot-timemachine-find-snapshots file)))
+        (if (null snapshots)
+            (message "No snapshots found")
+          (switch-to-buffer
+           (snapshot-timemachine-create file snapshots)))))))
 
 ;; Interactive timeline functions and their helpers
 
@@ -1111,11 +1113,13 @@ The snapshot timeline will be of FILE using SNAPSHOTS."
   "Display a timeline of snapshots of FILE.
 FILE defaults to the file the current buffer is visiting."
   (interactive)
-  (let* ((file (or file (buffer-file-name)))
-         (snapshots (snapshot-timemachine-find-snapshots file)))
-    (if (null snapshots)
-        (message "No snapshots found")
-      (snapshot-timeline-create file snapshots))))
+  (let ((file (or file (buffer-file-name))))
+    (if (null file)
+        (message "Buffer is not visiting a file")
+      (let ((snapshots (snapshot-timemachine-find-snapshots file)))
+        (if (null snapshots)
+            (message "No snapshots found")
+          (snapshot-timeline-create file snapshots))))))
 
 
 (provide 'snapshot-timemachine)
