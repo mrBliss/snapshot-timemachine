@@ -324,7 +324,7 @@ snapshots of the file will be:
           (snapshot-timemachine-find-dir
            ".snapshots" (directory-file-name file)))) ;; "/home/.snapshots"
     (if (null snapshot-dir)
-        (message "Could not find a .snapshots directory")
+        (error "Could not find a .snapshots directory")
       (let* ((common-prefix (file-name-directory snapshot-dir)) ;; "/home/"
              ;; "thomas/.emacs.d/init.el"
              (rel-path (string-remove-prefix common-prefix file)))
