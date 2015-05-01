@@ -23,8 +23,19 @@
 
 ;;; Commentary:
 
-;; For usage instructions and practical matters, see README.md. What follows
-;; is a quick overview of the design of this program.
+;; Snapshot-timemachine provides a polished interface to step through the
+;; snapshots of a file made by a third-party snapshot or backup facility,
+;; e.g. Btrfs, ZFS, etc.
+
+;; Out of the box, it can detect snapshots made by Snapper, but it provides
+;; a simple interface to add support for other snapshot facilities.
+
+;; It provides two views: the timemachine (`snapper-timemachine') and the
+;; timeline (`snapper-timeline').
+
+;;; Code:
+
+;; A quick overview of the design of this program:
 ;;
 ;; The program provides two main features: the `snapshot-timemachine' and the
 ;; `snapshot-timeline'. These names also function as namespaces for related
@@ -84,8 +95,6 @@
 ;; * compatibility with ZFS (http://wiki.complete.org/ZFSAutoSnapshots) and
 ;;   other common snapshot systems.
 
-
-;;; Code:
 
 ;; Imports
 
