@@ -1087,7 +1087,7 @@ for the time field in `tabulated-list-format'."
   "Snapshot Timeline"
   "Display a timeline of snapshots of a file."
   :group 'snapshot-timemachine
-  (add-hook 'tabulated-list-revert-hook #'snapshot-timeline-reload)
+  (add-hook 'tabulated-list-revert-hook #'snapshot-timeline-reload nil t)
   (let ((time-width (length
                      (format-time-string
                       snapshot-timemachine-time-format '(0 0 0 0)))))
