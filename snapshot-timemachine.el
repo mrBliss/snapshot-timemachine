@@ -349,6 +349,53 @@ snapshots of the file will be:
                           :file abs-path
                           :date (nth 5 (file-attributes sdir))))))))
 
+(defun snapshot-timemachine--osx-timemachine-parse-date (date)
+  "Parse a DATE like \"2016-05-27-140240\" as a time object."
+  (let* ((two "\\([0-9][0-9]\\)")
+         (time-re
+          (format "\\([0-9]\\{4\\}\\)-%s-%s-%s%s%s" two two two two two)))
+    (cl-macrolet ((m (n) `(string-to-number (match-string ,n date))))
+      (string-match time-re date)
+      (encode-time (m 6) (m 5) (m 4) (m 3) (m 2) (m 1)))))
+
+(defun snapshot-timemachine-osx-timemachine-snapshot-finder (file)
+  "Find snapshots of FILE made by Time Machine (OS X only).
+Uses the tmutil utility to get a list of Time Machine backups.
+
+For example, say FILE is
+\"/home/thomas/.emacs.\"
+
+And tmutil listbackups returns:
+\"/Volumes/TM/Backups.backupdb/mac/2015-12-23-120613\"
+\"/Volumes/TM/Backups.backupdb/mac/2016-01-03-151443\"
+...
+
+The snapshots of the file will be
+\"/Volumes/TM/Backups.backupdb/mac/2015-12-23-120613/ssd/home/thomas/.emacs\"
+\"/Volumes/TM/Backups.backupdb/mac/2016-01-03-151443/ssd/home/thomas/.emacs\"
+...
+
+Note the presence of \"ssd\", the name of the boot disk."
+  ;; TODO check if Time Machine is enabled, not just if we're on OS X
+  (if (not (executable-find "tmutil"))
+      (error "Time Machine not found")
+    (let ((backup-list (shell-command-to-string "tmutil listbackups"))
+          (id 0)
+          (file (expand-file-name file)) ;; e.g., replace ~ with /Users/user
+          ;; TODO currently hardcoded
+          (boot-disk "ssd"))
+      (cl-loop for snapshot-dir in (split-string backup-list "\n" t)
+               for date-str = (file-name-nondirectory snapshot-dir)
+               for date = (snapshot-timemachine--osx-timemachine-parse-date
+                           date-str)
+               for path = (format "%s/%s%s" snapshot-dir boot-disk file)
+               when (file-exists-p path)
+               collect (make-snapshot
+                        :id (cl-incf id)
+                        :name (number-to-string id)
+                        :file path
+                        :date date)))))
+
 (defvar snapshot-timemachine-snapshot-finder
   #'snapshot-timemachine-snapper-snapshot-finder
   "The function used to retrieve the snapshots for a given file.
