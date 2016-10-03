@@ -704,7 +704,7 @@ consisting of a plus sign (with face `diff-added') for each added
 line and a minus sign (with face `diff-removed') for each removed
 line.  If the total number of signs would exceed WIDTH, the
 number of plus and minus signs is relative to WIDTH."
-  (destructuring-bind (pluses . minuses) diffstat
+  (cl-destructuring-bind (pluses . minuses) diffstat
     (let ((width (or width 64))
           (total (+ pluses minuses)))
       (when (> total width)
@@ -880,7 +880,7 @@ Open a buffer using `diff'."
   "Check that A and B are marked, then call FN with the corresponding snapshots.
 The user is informed of missing marks.  FN must accept two
 arguments, the snapshots on which the A and B marks are placed."
-  (destructuring-bind (a . b) (snapshot-timeline-get-A-and-B)
+  (cl-destructuring-bind (a . b) (snapshot-timeline-get-A-and-B)
     (if (or (null a) (null b))
         (message "Please mark both A and B.")
       (funcall fn
