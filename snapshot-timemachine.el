@@ -103,6 +103,10 @@
 (require 'diff-mode) ;; for the diff-{added,removed} faces
 (require 'hl-line)   ;; for hl-line-{mode,highlight}
 
+(defgroup snapshot-timemachine nil
+  "Step through (Btrfs, ZFS, ...) snapshots of files"
+  :group 'backup)
+
 ;; Customisation
 
 (defvar snapshot-timemachine-time-format "%a %d %b %Y %R"
@@ -349,12 +353,13 @@ snapshots of the file will be:
                           :file abs-path
                           :date (nth 5 (file-attributes sdir))))))))
 
-(defvar snapshot-timemachine-snapshot-finder
+(defcustom snapshot-timemachine-snapshot-finder
   #'snapshot-timemachine-snapper-snapshot-finder
   "The function used to retrieve the snapshots for a given file.
 The function should accept an absolute path to a file and return
 a list of `snapshot' structs of existing snapshots of the file.
-The `diffstat' can still remain nil, and will be filled in later.")
+The `diffstat' can still remain nil, and will be filled in later."
+  :type 'function)
 
 (defun snapshot-timemachine-diffstat (file1 file2)
   "Calculate a diffstat between FILE1 and FILE2.
