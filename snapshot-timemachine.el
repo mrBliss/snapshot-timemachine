@@ -5,7 +5,7 @@
 ;; Author: Thomas Winant <dewinant@gmail.com>
 ;; URL: https://github.com/mrBliss/snapshot-timemachine
 ;; Version: 0.1
-;; Package-Requires: ((emacs "24.4") (cl-lib "0.5"))
+;; Package-Requires: ((emacs "24.4"))
 ;; Created: Apr 4 2015
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -102,6 +102,10 @@
 (require 'subr-x)    ;; for string-remove-prefix
 (require 'diff-mode) ;; for the diff-{added,removed} faces
 (require 'hl-line)   ;; for hl-line-{mode,highlight}
+
+(defgroup snapshot-timemachine nil
+  "Step through (Btrfs, ZFS, ...) snapshots of files"
+  :group 'backup)
 
 ;; Customisation
 
@@ -349,12 +353,13 @@ snapshots of the file will be:
                           :file abs-path
                           :date (nth 5 (file-attributes sdir))))))))
 
-(defvar snapshot-timemachine-snapshot-finder
+(defcustom snapshot-timemachine-snapshot-finder
   #'snapshot-timemachine-snapper-snapshot-finder
   "The function used to retrieve the snapshots for a given file.
 The function should accept an absolute path to a file and return
 a list of `snapshot' structs of existing snapshots of the file.
-The `diffstat' can still remain nil, and will be filled in later.")
+The `diffstat' can still remain nil, and will be filled in later."
+  :type 'function)
 
 (defun snapshot-timemachine-diffstat (file1 file2)
   "Calculate a diffstat between FILE1 and FILE2.
@@ -704,7 +709,7 @@ consisting of a plus sign (with face `diff-added') for each added
 line and a minus sign (with face `diff-removed') for each removed
 line.  If the total number of signs would exceed WIDTH, the
 number of plus and minus signs is relative to WIDTH."
-  (destructuring-bind (pluses . minuses) diffstat
+  (cl-destructuring-bind (pluses . minuses) diffstat
     (let ((width (or width 64))
           (total (+ pluses minuses)))
       (when (> total width)
@@ -880,7 +885,7 @@ Open a buffer using `diff'."
   "Check that A and B are marked, then call FN with the corresponding snapshots.
 The user is informed of missing marks.  FN must accept two
 arguments, the snapshots on which the A and B marks are placed."
-  (destructuring-bind (a . b) (snapshot-timeline-get-A-and-B)
+  (cl-destructuring-bind (a . b) (snapshot-timeline-get-A-and-B)
     (if (or (null a) (null b))
         (message "Please mark both A and B.")
       (funcall fn
