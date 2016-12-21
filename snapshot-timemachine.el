@@ -86,9 +86,6 @@
 ;; updated zipper.
 
 ;; TODO
-;; * BUG: when the timeline is visible at the same time as the timemachine and
-;;   the timemachine snapshot changes, the cursor in the timeline doesn't
-;;   move, but the correct line is highlighted.
 ;; * sync diffs with timeline/timemachine as well?
 ;; * relative timestamps
 ;; * dired?
@@ -967,11 +964,21 @@ Must be called from within a snapshot-timeline buffer.  Throws an
 error when there is no such snapshot."
   ;; No need to move when we're on the right snapshot
   (unless (= id (tabulated-list-get-id))
-    (cl-loop for pos = (progn (goto-char (point-min)) (point-min))
-             then (progn (forward-line) (point))
-             while (< pos (point-max))
-             until (= id (tabulated-list-get-id pos))))
-  (hl-line-highlight)
+    ;; To actually move the point in a buffer displayed in another window, we
+    ;; have to use `with-selected-window' instead of `with-current-buffer'. We
+    ;; really want the point to move so that the selected snapshot in the
+    ;; timeline is in sync with the snapshot displayed in the time
+    ;; machine. Edge case: the timeline buffer is displayed in multiple
+    ;; windows, so move the point in all these windows. We could optimise this
+    ;; and reuse the position found in the first window, but this is not worth
+    ;; the complexity.
+    (dolist (w (get-buffer-window-list nil nil t))
+      (with-selected-window w
+        (cl-loop for pos = (progn (goto-char (point-min)) (point-min))
+                 then (progn (forward-line) (point))
+                 while (< pos (point-max))
+                 until (= id (tabulated-list-get-id pos))))
+      (hl-line-highlight)))
   ;; We didn't find the snapshot
   (when (= (point) (point-max))
     (if (snapshot-timeline-all-displayedp)
