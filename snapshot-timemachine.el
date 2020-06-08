@@ -350,6 +350,28 @@ snapshots of the file will be:
                           :file abs-path
                           :date (nth 5 (file-attributes sdir))))))))
 
+(defun snapshot-timemachine-zsd-snapshot-finder (file)
+  "Find snapshots of FILE discovered via zsd."
+  (let* ((traceback (concat (int-to-string snapshot-timemachine-snapshot-traceback) " "))
+         (cmd-string (concat "zsd -snapshot-timemachine -d " traceback  file " list"))
+         (cmd-out (shell-command-to-string cmd-string))
+         (snaps (s-lines cmd-out))
+         (result ()))
+    (dolist (snap (seq-filter #'s-present? snaps) result)
+      (let* ((fields (s-split "\t" snap))
+             (id   (s-trim (car fields)))
+             (snap (s-trim (seq-elt fields 1)))
+             (file (s-trim (seq-elt fields 2)))
+             (attr (file-attributes file))
+             (time (file-attribute-modification-time attr)))
+        (setq result (cons (make-snapshot
+                           :id (string-to-number id)
+                           :name snap
+                           :file file
+                           :date time)
+                           result))))
+      ))
+
 (defcustom snapshot-timemachine-snapshot-finder
   #'snapshot-timemachine-snapper-snapshot-finder
   "The function used to retrieve the snapshots for a given file.
@@ -357,6 +379,13 @@ The function should accept an absolute path to a file and return
 a list of `snapshot' structs of existing snapshots of the file.
 The `diffstat' can still remain nil, and will be filled in later."
   :type 'function)
+
+(defcustom snapshot-timemachine-snapshot-traceback
+  14
+  "How far back (in days) shall we search for distinct snapshots.
+Not all finder interfaces support this option; currently just the `zsd'
+`zfs' backend''. The default is to look back 14 days into the past."
+  :type 'integer)
 
 (defun snapshot-timemachine-diffstat (file1 file2)
   "Calculate a diffstat between FILE1 and FILE2.
