@@ -18,10 +18,11 @@ Snapshot-timemachine provides a polished interface to step through the
 snapshots of a file made by a third-party snapshot or backup facility, e.g.
 Btrfs, ZFS, etc.
 
-Out of the box, it can detect snapshots made by [Snapper], but it provides a
+Out of the box, it can detect snapshots made by [Snapper] and [ZFS], but it provides a
 simple interface to add support for other snapshot facilities.
 
 [Snapper]: http://snapper.io
+[ZFS]: https://zfsonlinux.org/
 
 It provides two views: the [timemachine](#timemachine) and the
 [timeline](#timeline).
@@ -109,7 +110,13 @@ There are a couple of options that can be tweaked:
   active. If for some reason loading a snapshot takes a while (e.g. stored on
   remote storage), setting this to `nil` will make moving around in the
   timeline more responsive.
+* `snapshot-timemachine-snapshot-traceback` (default: 14) determines how far
+  back to search for distinct snapshots. Currently only supported for ZFS.
+* `snapshot-timemachine-snapshot-finder` (default: `snapshot-timemachine-snapper-snapshot-finder`) function used to retrieve the snapshots for a givn file. Current options are
+  * snapshot-timemachine-snapper-snapshot-finder: Uses [Snapper] to discover past snapshots
+  * snapshot-timemachine-zsd-snapshot-finder: Uses [zsd](zfs-snap-diff) to discover past snapshots
 
+[zsd]: https://github.com/j-keck/zfs-snap-diff
 
 ## Your own snapshot system
 
