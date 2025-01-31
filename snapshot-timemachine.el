@@ -295,7 +295,7 @@ is greater than zero."
 (defun snapshot-interestingp (s)
   "Return t when snapshot S's diffstat is interesting.
 See `snapshot-timemachine-interesting-diffstatp' to know what
-'interesting' means in this context."
+\\='interesting\\=' means in this context."
   (snapshot-timemachine-interesting-diffstatp (snapshot-diffstat s)))
 
 ;; Locating snapshots
@@ -742,7 +742,7 @@ snapshots in which the file was changed are returned."
                     "")))))
 
 (defun snapshot-timeline-all-displayedp ()
-  "Return t when all snapshots are displayed, not only 'interesting' ones.
+  "Return t when all snapshots are displayed, not only \\='interesting\\=' ones.
 Otherwise return nil."
   ;; When there are as many entries displayed as there are snapshots, we
   ;; assume we're displaying all entries.  The condition can also be true when
