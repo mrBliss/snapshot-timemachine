@@ -98,6 +98,9 @@ Available bindings:
 
 There are a couple of options that can be tweaked:
 
+* `snapshot-timemachine-snapshot-finder` (default:
+  `#'snapshot-timemachine-snapper-snapshot-finder`) the function used to
+  retrieve the snapshots for a given file.
 * `snapshot-timemachine-time-format` (default: `"%a %d %b %Y %R"`) the format
   used to display the dates.
 * `snapshot-timemachine-diff-switches` (default: `"-u"`) the switches to pass

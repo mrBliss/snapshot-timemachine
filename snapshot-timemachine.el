@@ -100,29 +100,46 @@
 (require 'diff-mode) ;; for the diff-{added,removed} faces
 (require 'hl-line)   ;; for hl-line-{mode,highlight}
 
+;; Customisation
+
 (defgroup snapshot-timemachine nil
   "Step through (Btrfs, ZFS, ...) snapshots of files"
   :group 'backup)
 
-;; Customisation
+(defcustom snapshot-timemachine-snapshot-finder
+  #'snapshot-timemachine-snapper-snapshot-finder
+  "The function used to retrieve the snapshots for a given file.
+The function should accept an absolute path to a file and return
+a list of `snapshot' structs of existing snapshots of the file.
+The `diffstat' can still remain nil, and will be filled in later."
+  :group 'snapshot-timemachine
+  :type 'function)
 
-(defvar snapshot-timemachine-time-format "%a %d %b %Y %R"
+(defcustom snapshot-timemachine-time-format "%a %d %b %Y %R"
   "The format to use when displaying a snapshot's time.
-The default format is \"sat 14 mar 2015 10:35\".")
+The default format is \"sat 14 mar 2015 10:35\"."
+  :group 'snapshot-timemachine
+  :type 'string)
 
-(defvar snapshot-timemachine-diff-switches "-u"
+(defcustom snapshot-timemachine-diff-switches "-u"
   "The switches to pass to diff when comparing snapshots of a file.
-See variable `diff-switches'.")
+See variable `diff-switches'."
+  :group 'snapshot-timemachine
+  :type 'string)
 
-(defvar snapshot-timemachine-include-current t
-  "Include the current version of the file in the list of snapshots.")
+(defcustom snapshot-timemachine-include-current t
+  "Include the current version of the file in the list of snapshots."
+  :group 'snapshot-timemachine
+  :type 'boolean)
 
-(defvar snapshot-timemachine-sync-with-timeline t
+(defcustom snapshot-timemachine-sync-with-timeline t
   "Keep the timemachine in sync with the timeline.
 When going to a snapshot in the timeline, also go to it in the
 timemachine and vice versa.  If, for some reason, loading a
 snapshot takes a while (e.g. remote storage), setting this to nil
-will make moving around in the timeline more responsive.")
+will make moving around in the timeline more responsive."
+  :group 'snapshot-timemachine
+  :type 'boolean)
 
 ;; Zipper
 
@@ -350,13 +367,6 @@ snapshots of the file will be:
                           :file abs-path
                           :date (nth 5 (file-attributes sdir))))))))
 
-(defcustom snapshot-timemachine-snapshot-finder
-  #'snapshot-timemachine-snapper-snapshot-finder
-  "The function used to retrieve the snapshots for a given file.
-The function should accept an absolute path to a file and return
-a list of `snapshot' structs of existing snapshots of the file.
-The `diffstat' can still remain nil, and will be filled in later."
-  :type 'function)
 
 (defun snapshot-timemachine-diffstat (file1 file2)
   "Calculate a diffstat between FILE1 and FILE2.
