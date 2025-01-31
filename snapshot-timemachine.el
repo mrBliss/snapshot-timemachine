@@ -1,4 +1,4 @@
-;;; snapshot-timemachine.el --- Step through (Btrfs, ZFS, ...) snapshots of files
+;;; snapshot-timemachine.el --- Step through (Btrfs, ZFS, ...) snapshots of files  -*- lexical-binding: t -*-
 
 ;; Copyright (C) 2015 by Thomas Winant
 
