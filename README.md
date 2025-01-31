@@ -112,6 +112,8 @@ There are a couple of options that can be tweaked:
   active. If for some reason loading a snapshot takes a while (e.g. stored on
   remote storage), setting this to `nil` will make moving around in the
   timeline more responsive.
+* `snapshot-timemachine-name-column-width` (default: `30`) width to use for the
+  snapshot name column in the timeline.
 
 
 ## Your own snapshot system

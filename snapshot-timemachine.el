@@ -141,6 +141,11 @@ will make moving around in the timeline more responsive."
   :group 'snapshot-timemachine
   :type 'boolean)
 
+(defcustom snapshot-timemachine-name-column-width 30
+  "Width to use for the snapshot name column in the timeline."
+  :group 'snapshot-timemachine
+  :type 'natnum)
+
 ;; Zipper
 
 (cl-defstruct snapshot-timemachine--zipper
@@ -1116,8 +1121,7 @@ for the time field in `tabulated-list-format'."
                       snapshot-timemachine-time-format '(0 0 0 0)))))
     (setq tabulated-list-padding 2
           tabulated-list-format
-          ;; TODO make widths configurable
-          `[("Snapshot" 8 t)
+          `[("Snapshot" ,snapshot-timemachine-name-column-width t)
             ("Time" ,time-width snapshot-timeline-compare-by-time)
             ("Diffstat" 40 nil)])
     (tabulated-list-init-header)))
