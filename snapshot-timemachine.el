@@ -5,7 +5,7 @@
 ;; Author: Thomas Winant <dewinant@gmail.com>
 ;; URL: https://github.com/mrBliss/snapshot-timemachine
 ;; Version: 0.1
-;; Package-Requires: ((emacs "24.4"))
+;; Package-Requires: ((emacs "28.1"))
 ;; Created: Apr 4 2015
 
 ;; This program is free software; you can redistribute it and/or modify
@@ -364,14 +364,15 @@ The result is cons cell (ADDED . REMOVED) of the number of lines
 added and the number of lines removed going from FILE1 to FILE2.
 Return nil when one of the two files is missing (or nil)."
   (when (and file1 file2 (file-exists-p file1) (file-exists-p file2))
-    (let ((diff-output
-           (shell-command-to-string
-            (format "diff %s %s %s \"%s\" \"%s\""
-                    "--old-line-format='-'"
-                    "--new-line-format='+'"
-                    "--unchanged-line-format=''"
-                    file1 file2))))
-      (cl-loop for c across diff-output
+    (when-let ((diff-output
+                (process-lines-ignore-status
+                 "diff"
+                 "--old-line-format=-"
+                 "--new-line-format=+"
+                 "--unchanged-line-format=''"
+                 file1
+                 file2)))
+      (cl-loop for c across (car diff-output)
                count (eq c ?+) into p
                count (eq c ?-) into m
                finally return (cons p m)))))
