@@ -18,8 +18,9 @@ Snapshot-timemachine provides a polished interface to step through the
 snapshots of a file made by a third-party snapshot or backup facility, e.g.
 Btrfs, ZFS, etc.
 
-Out of the box, it can detect snapshots made by [Snapper], but it provides a
-simple interface to add support for other snapshot facilities.
+Out of the box, it can detect snapshots made by [Snapper] and automatic ZFS
+snapshots (snapshot names start with `zfs-auto-snap`), but it provides a simple
+interface to add support for other snapshot facilities.
 
 [Snapper]: http://snapper.io
 
@@ -118,8 +119,8 @@ There are a couple of options that can be tweaked:
 
 ## Your own snapshot system
 
-To use `snapshot-timemachine` for a snapshot system other than [Snapper], you
-have to define your own function to find the snapshots.
+To use `snapshot-timemachine` for a snapshot system not supported out of the
+box, you have to define your own function to find the snapshots.
 
 Given an absolute path to a file as only argument, the function must return a
 list of `snapshot` structs of the existing snapshots of the file. When

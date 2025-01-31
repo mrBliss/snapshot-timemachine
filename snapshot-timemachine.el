@@ -89,8 +89,6 @@
 ;; * sync diffs with timeline/timemachine as well?
 ;; * relative timestamps
 ;; * dired?
-;; * compatibility with ZFS (http://wiki.complete.org/ZFSAutoSnapshots) and
-;;   other common snapshot systems.
 
 
 ;; Imports
@@ -372,6 +370,85 @@ snapshots of the file will be:
                           :file abs-path
                           :date (nth 5 (file-attributes sdir))))))))
 
+(defun snapshot-timemachine--zfs-snapshot-creation-times (zfs-dir)
+  "Return the creation time for each ZFS snapshot in ZFS-DIR.
+Unfortunately, the creation time of a mounted ZFS snapshot does
+not correspond to its real creation time.  See URL
+`https://github.com/openzfs/zfs/issues/10690'.
+
+Instead, we have to get them via the program `zfs list'.  But in order
+to do that, we need to find out the mountpoint using the program
+`findmnt'.  This function will return nil when either of the executables
+is not present on the PATH.
+
+Return an alist mapping the snapshot names to times."
+  (when-let
+      ((findmnt-output
+        ;; TODO Does this also work for non-legacy mountpoints?
+        (process-lines-ignore-status
+         "findmnt" "--mountpoint" (file-name-directory zfs-dir)
+         "--output" "SOURCE" "--noheadings"))
+       (zfs-dataset (car findmnt-output))
+       (zfs-list-output
+        (process-lines-ignore-status
+         "zfs" "list" "-H" "-p" "-t" "snapshot" "-S" "name" "-o" "name,creation"
+         zfs-dataset))
+       (prefix (format "%s@" zfs-dataset)))
+    (mapcar
+     (lambda (line)
+       (let ((columns (string-split line "\t")))
+         (cons
+          (string-remove-prefix prefix (car columns))
+          (seconds-to-time (string-to-number (cadr columns))))))
+     zfs-list-output)))
+
+(defun snapshot-timemachine-zfs-snapshot-finder (file)
+  "Find automatic ZFS snapshots of FILE.
+
+Look for an ancestor directory containing \".zfs/snapshot\",
+which contains snapshots.
+
+For example, say FILE is \"/home/thomas/.zshrc\"
+
+And the snapshots are stored in \"/home/.zfs/snapshot/\", the
+snapshots of the file will be:
+\"/home/.zfs/snapshot/zfs-auto-snap_weekly-2025-01-06-10h03/thomas/.zshrc\",
+\"/home/.zfs/snapshot/zfs-auto-snap_weekly-2025-01-13-08h50/thomas/.zshrc\",
+..."
+  (if-let
+      ((file (expand-file-name file)) ;; "/home/thomas/.zshrc"
+       (zfs-dir
+        ;; "/home/.zfs"
+        (snapshot-timemachine-find-dir ".zfs" (directory-file-name file)))
+       (snapshot-dir (expand-file-name "snapshot" zfs-dir)))
+      (let* ((common-prefix (file-name-directory zfs-dir)) ;; "/home/"
+             (rel-path
+              ;; "thomas/.zshrc"
+              (string-remove-prefix common-prefix file))
+             (snapshot-times
+              (snapshot-timemachine--zfs-snapshot-creation-times zfs-dir)))
+        (cl-loop
+         for sdir in (directory-files snapshot-dir t)
+
+         and id from 1
+
+         ;; "zfs-auto-snap_weekly-2025-01-06-10h03"
+         for sname = (file-name-nondirectory sdir)
+
+         for date = (cdr (assoc sname snapshot-times))
+
+         ;; "weekly-2025-01-06-10h03"
+         for name = (string-remove-prefix "zfs-auto-snap_" sname)
+
+         ;; "/home/.zfs/snapshot/zfs-auto-snap_weekly-2025-01-06-10h03/thomas/.zshrc"
+         for abs-path = (expand-file-name rel-path sdir)
+
+         when (and (not (string-match-p "\\.\\.?" sname))
+                   (file-exists-p abs-path))
+
+         collect (make-snapshot :id id :name name :file abs-path :date date)))
+
+    (error "Could not find a .zfs directory containing snapshots")))
 
 (defun snapshot-timemachine-diffstat (file1 file2)
   "Calculate a diffstat between FILE1 and FILE2.
